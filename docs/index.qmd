@@ -1,25 +1,668 @@
 ---
-title: "Indígenas"
-format: html
+title: "Perfil Étnico no Serviço Público Federal"
+subtitle: "Análise da representatividade <span style='color:#27ae60;'>Indígena</span> (2018-2026)"
+author: "Marcelo Ribeiro"
+format:
+  html:
+    code-fold: true
+    theme: minimal
+    fig-width: 10
+    fig-height: 7
+    self-contained: true
 ---
 
-## Quarto
+```{r setup, message=FALSE, warning=FALSE}
+# ==============================================================================
+# 1. CONFIGURAÇÕES INICIAIS E BIBLIOTECAS
+# ==============================================================================
+library(arrow)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(forcats)
+library(ggtext)
+library(showtext)
+library(DBI)
+library(sparklyr)
+library(stringr)
+library(reactable)
+library(htmltools)
+library(scales)
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+# Configuração de fontes para estética TidyTuesday
+font_add_google("Roboto Condensed", "roboto")
+font_add_google("Outfit", "title_font")
+showtext_auto()
 
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
-```{r}
-1 + 1
 ```
 
-You can add options to executable code like this 
 
-```{r}
-#| echo: false
-2 * 2
+## Introdução
+Este relatório apresenta uma análise da evolução histórica da composição étnica dos servidores públicos federais, com um foco especial na trajetória da representatividade indígena. Os dados são processados diretamente do ambiente Databricks (MGI-BRONZE) via Spark, permitindo a manipulação de grandes volumes de dados de forma eficiente e segura.
+
+
+```{r databricks, message=FALSE, warning=FALSE}
+
+# ==============================================================================
+# 2. CONEXÃO COM O DATABRICKS
+# ==============================================================================
+sc <- spark_connect(
+  master     = Sys.getenv("master"),
+  method     = Sys.getenv("method"), 
+  cluster_id = Sys.getenv("cluster_id"), 
+  token      = Sys.getenv("token_databricks"), 
+  envname    = "r-databricks-py312"
+)
+
+# Leitura dos dados apontando para o Volume Bronze
+df_spark <- spark_read_parquet(
+  sc,
+  name = "servidores",
+  path = "/Volumes/mgi-bronze/raw_data_volumes/mgi/cginf/servidores_dwsiape_mensal_funcoes/"
+)
+
+```
+## Análise da Representatividade
+
+Nesta seção, realizamos o processamento dos dados brutos para identificar a trajetória das diferentes autodeclarações étnicas. Para garantir a precisão do destaque visual (highlight), aplicamos uma limpeza nas strings para neutralizar espaços extras ou variações de acentuação (como "INDIGENA" vs "INDÍGENA"), garantindo que a categoria de interesse seja corretamente mapeada.
+
+```{r wrangling, message=FALSE, warning=FALSE}
+
+# ==============================================================================
+# 3. DATA WRANGLING (Spark + R)
+# ==============================================================================
+df_etnia <- df_spark %>%
+  group_by(mes, nome_cor_origem_etnica) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  collect() %>% 
+  mutate(
+    # Limpeza de strings para garantir o match com a base
+    nome_limpo = str_trim(nome_cor_origem_etnica),
+    nome_limpo = str_to_upper(nome_limpo),
+    
+    # Identifica categoria indígena (robusto para variações)
+    is_indigena = ifelse(str_detect(nome_limpo, "INDIGENA|INDÍGENA"), "Sim", "Não"),
+    
+    # Conversão de competência para formato de data
+    data = ymd(paste0(mes, "01"))
+  ) %>%
+  group_by(data) %>%
+  mutate(pct = n / sum(n)) %>%
+  ungroup()
+
+```
+## Panorama Atual
+
+A tabela abaixo apresenta os números absolutos e a representatividade proporcional de cada grupo no último mês da série histórica. As barras visuais auxiliam na percepção imediata do peso de cada categoria no funcionalismo público.
+
+
+
+```{r tabela2, message=FALSE, warning=FALSE}
+
+# ==============================================================================
+# 4. TABELA INTERATIVA (Reactable)
+# ==============================================================================
+dados_tabela <- df_etnia %>%
+  filter(data == max(data)) %>%
+  select(nome_cor_origem_etnica, n, pct) %>%
+  arrange(desc(pct))
+
+reactable(
+  dados_tabela,
+  pagination = FALSE,
+  highlight = TRUE,
+  compact = TRUE,
+  theme = reactableTheme(
+    borderColor = "#dfe2e5",
+    stripedColor = "#f6f8fa",
+    highlightColor = "#eab67644",
+    cellPadding = "12px 15px",
+    style = list(fontFamily = "Roboto Condensed, sans-serif")
+  ),
+  columns = list(
+    nome_cor_origem_etnica = colDef(
+      name = "Cor/Origem Étnica",
+      minWidth = 150,
+      style = function(value) {
+        if (str_detect(str_to_upper(value), "INDIGENA|INDÍGENA")) {
+          list(fontWeight = "bold", color = "#fff", backgroundColor = "#27ae60", padding = "10px")
+        } else {
+          list(fontWeight = "bold", color = "#2c3e50")
+        }
+      }
+    ),
+    n = colDef(
+      name = "Total de Servidores",
+      align = "center",
+      format = colFormat(separators = TRUE, locales = "pt-BR")
+    ),
+    pct = colDef(
+      name = "Participação (%)",
+      defaultSortOrder = "desc",
+      cell = function(value, index) {
+        label <- dados_tabela$nome_cor_origem_etnica[index]
+        bar_color <- if (str_detect(str_to_upper(label), "INDIGENA|INDÍGENA")) "#27ae60" else "#d1d5db"
+        
+        width <- paste0(value * 100, "%")
+        bar <- div(
+          style = list(background = bar_color, width = width, height = "12px", borderRadius = "2px")
+        )
+        
+        div(
+          style = list(display = "flex", alignItems = "center"),
+          div(style = list(width = "50px", marginRight = "10px"), 
+              sprintf("%.1f%%", value * 100)),
+          bar
+        )
+      }
+    )
+  )
+)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+
+## Evolução da Representatividade no Tempo
+
+O gráfico abaixo utiliza a técnica de Highlighting para dar foco à trajetória histórica dos servidores indígenas. Esta abordagem visual permite isolar o comportamento de um grupo específico, facilitando a análise de sua evolução sem que a tendência seja ofuscada pelas categorias com maior volume de dados.
+
+```{r grafico, message=FALSE, warning=FALSE}
+
+
+# ==============================================================================
+# 5. GRÁFICO DE SÉRIE HISTÓRICA (Highlighter)
+# ==============================================================================
+color_destaque <- "#27ae60" # Verde Indígena
+color_fundo    <- "#d1d5db" # Cinza Fundo
+
+# Ponto para a etiqueta final (Labeling direto)
+label_final <- df_etnia %>% 
+  filter(is_indigena == "Sim") %>% 
+  filter(data == max(data))
+
+ggplot(df_etnia, aes(x = data, y = pct, group = nome_limpo)) +
+  
+  # Camada 1: Linhas de fundo (Demais categorias em cinza)
+  geom_line(data = filter(df_etnia, is_indigena == "Não"), 
+            color = color_fundo, linewidth = 0.7, alpha = 0.4) +
+  
+  # Camada 2: Linha de destaque (Indígena em verde)
+  geom_line(data = filter(df_etnia, is_indigena == "Sim"), 
+            color = color_destaque, linewidth = 2) +
+  geom_point(data = filter(df_etnia, is_indigena == "Sim"), 
+             color = color_destaque, size = 3.5) +
+  
+  # Camada 3: Etiqueta direta (Anotação de Storytelling)
+  geom_text(data = label_final, 
+            aes(label = paste0("Indígenas: ", round(pct*100, 2), "%")),
+            hjust = -0.15, vjust = 0.5, family = "roboto", 
+            fontface = "bold", color = color_destaque, size = 5) +
+
+  # Escalas e Formatação
+  scale_y_continuous(labels = percent_format(), limits = c(0, NA)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  
+  labs(
+    title = "Série Histórica: Composição Étnica (Destaque <span style='color:#27ae60;'>INDÍGENA</span>)",
+    subtitle = "Proporção de servidores ativos: Indígenas vs. Demais Categorias (2018-2026)",
+    caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
+    x = NULL, y = "Proporção (%)"
+  ) +
+  
+  theme_minimal(base_family = "roboto") +
+  theme(
+    plot.title = element_markdown(family = "title_font", size = 26, face = "bold", hjust = 0),
+    plot.subtitle = element_text(size = 15, color = "grey40", margin = margin(b = 25)),
+    plot.caption = element_text(size = 10, color = "grey60", margin = margin(t = 20)),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.text = element_text(size = 12, color = "grey30"),
+    plot.margin = margin(30, 110, 30, 30) 
+  )
+```
+Para baixar, você pode simplesmente copiar esse conteúdo, abrir o Bloco de Notas (ou seu editor favorito), colar e salvar como **`index.qmd`**. No RStudio, basta clicar em **Render** e ele gerará o HTML completo. 
+
+O que achou da estrutura? Se precisar de mais alguma análise específica (tipo cruzamento com escolaridade), é só falar!
+
+
+## Evolução da Representatividade no Tempo
+
+O gráfico abaixo apresenta a trajetória histórica de todas as categorias de cor/raça. Utilizamos o mapeamento de cores para diferenciar os grupos, aplicando uma espessura maior e uma cor vibrante à categoria **Indígena** para facilitar o contraste visual em relação às demais séries.
+
+
+```{r grafico_serie_historica, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# ==============================================================================
+# 5. GRÁFICO DE SÉRIE HISTÓRICA (Foco em Indígena com Legenda)
+# ==============================================================================
+
+# 1. Definir as cores manualmente (Verde para indígena, Cinza para o resto)
+# Pegamos todos os nomes únicos de categorias para garantir que o mapeamento seja completo
+categorias <- unique(df_etnia$nome_limpo)
+cores_map <- setNames(rep("#d1d5db", length(categorias)), categorias)
+# Sobrescrevemos a cor do grupo indígena (ajuste o nome se necessário)
+cores_map[str_detect(names(cores_map), "INDIGENA|INDÍGENA")] <- "#27ae60"
+
+# 2. Definir tamanhos de linha manuais
+tamanhos_map <- setNames(rep(0.7, length(categorias)), categorias)
+tamanhos_map[str_detect(names(tamanhos_map), "INDIGENA|INDÍGENA")] <- 2
+
+# 3. Ponto para a etiqueta final
+label_final <- df_etnia %>% 
+  filter(is_indigena == "Sim") %>% 
+  filter(data == max(data))
+
+# 4. Construção do gráfico
+ggplot(df_etnia, aes(x = data, y = pct, group = nome_limpo, color = nome_limpo, size = nome_limpo)) +
+  
+  # Linhas para todas as categorias
+  geom_line(alpha = 0.8) +
+  
+  # Pontos apenas para a categoria indígena (para destaque extra)
+  geom_point(data = filter(df_etnia, is_indigena == "Sim"), size = 3.5) +
+  
+  # Etiqueta de texto direta
+  geom_text(data = label_final, 
+            aes(label = paste0("Indígenas: ", round(pct*100, 1), "%")),
+            hjust = 1, vjust = 3, family = "roboto", 
+            fontface = "bold", size = 5, show.legend = FALSE) +
+
+  # Escalas Manuais de Cores e Tamanhos
+  scale_color_manual(values = cores_map, name = "Cor/Raça") +
+  scale_size_manual(values = tamanhos_map, guide = "none") + # Esconde legenda de tamanho
+  
+  # Escalas de Eixos
+  scale_y_continuous(labels = percent_format(accuracy = 0.1), limits = c(0, NA)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  
+  # Títulos e Identidade Visual
+  labs(
+    title = "Série Histórica: Composição Étnica (Destaque <span style='color:#27ae60;'>INDÍGENA</span>)",
+    subtitle = "Proporção de servidores ativos por autodeclaração (2018-2026)",
+    caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
+    x = NULL, y = "Proporção (%)"
+  ) +
+  
+  # Tema
+  theme_minimal(base_family = "roboto") +
+  theme(
+    plot.title = element_markdown(family = "title_font", size = 26, face = "bold", hjust = 0),
+    plot.subtitle = element_text(size = 15, color = "grey40", margin = margin(b = 25)),
+    plot.caption = element_text(size = 10, color = "grey60", margin = margin(t = 20)),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.text = element_text(size = 12, color = "grey30"),
+    plot.margin = margin(30, 120, 30, 30) 
+  )
+```
+
+
+## Evolução Étnica (Echarts4r)
+
+Este gráfico utiliza a biblioteca **Echarts4r** para criar uma visualização interativa e empilhada da composição étnica, agrupando os dados em três grandes categorias para facilitar a análise comparativa ao longo do tempo.
+
+```{r grafico_echarts, echo=FALSE, message=FALSE, warning=FALSE}
+# ==============================================================================
+# 1. PREPARAÇÃO DOS DADOS (Agrupamento e Pivotagem)
+# ==============================================================================
+library(tidyr)
+library(echarts4r)
+
+df_grafico <- df_etnia %>%
+  mutate(
+    categoria_agrupada = case_when(
+      nome_limpo %in% c("PRETA", "PARDA", "NEGRA") ~ "Pretos-Pardos-Negros",
+      is_indigena == "Sim" ~ "Indígenas",
+      TRUE ~ "Demais Etnias"
+    )
+  ) %>%
+  group_by(data, categoria_agrupada) %>%
+  summarise(pct_soma = sum(pct), .groups = "drop") %>%
+  # Transformar para formato largo (wider)
+  pivot_wider(names_from = categoria_agrupada, values_from = pct_soma) %>%
+  arrange(data)
+
+# ==============================================================================
+# 2. CONSTRUÇÃO DO GRÁFICO INTERATIVO
+# ==============================================================================
+df_grafico %>%
+  e_charts(x = data) %>%
+  e_tooltip(
+    formatter = e_tooltip_item_formatter("percent", digits = 1)
+  ) %>%
+  e_y_axis(
+    name = "Percentual Etnia",
+    formatter = e_axis_formatter("percent", digits = 1),
+    nameTextStyle = list(color = "#666666", fontWeight = "bold")
+  ) %>%
+  # Barras empilhadas (stack = "grp")
+  e_bar(`Demais Etnias`, stack = "grp") %>%
+  e_bar(`Pretos-Pardos-Negros`, stack = "grp") %>%
+  e_bar(Indígenas, stack = "grp") %>%
+  # Customizações estéticas
+  e_datazoom(show = TRUE, toolbox = FALSE) %>%
+  e_legend(right = 0) %>%
+  e_title(text = "Composição Étnica no Tempo"
+          ) %>%
+  # Paleta de cores: Azul (Demais), Vermelho (Negros), Dourado (Indígenas)
+  e_theme_custom('{"color":["#004580","#ef0219", "#a38a17"]}')
+```
+
+## Perfil Étnico Agrupado (Echarts4r)
+
+Nesta visualização, as etnias são consolidadas em três grupos principais para destacar a evolução da representatividade. As barras foram alargadas para melhor leitura visual, e o eixo vertical foi limitado a 100% para evitar distorções de escala.
+
+```{r grafico_echarts_ajustado, echo=FALSE, message=FALSE, warning=FALSE}
+# ==============================================================================
+# 1. PREPARAÇÃO E AGRUPAMENTO
+# ==============================================================================
+library(tidyr)
+library(echarts4r)
+library(dplyr)
+
+df_grafico <- df_etnia %>%
+  mutate(
+    categoria_agrupada = case_when(
+      nome_limpo %in% c("PRETA", "PARDA", "NEGRA") ~ "Pretos-Pardos-Negros",
+      is_indigena == "Sim" ~ "Indígenas",
+      TRUE ~ "Demais Etnias"
+    )
+  ) %>%
+  group_by(data, categoria_agrupada) %>%
+  summarise(pct_soma = sum(pct), .groups = "drop") %>%
+  pivot_wider(names_from = categoria_agrupada, values_from = pct_soma) %>%
+  arrange(data)
+
+# ==============================================================================
+# 2. CONSTRUÇÃO DO GRÁFICO (Barras Largas e Eixo Y Ajustado)
+# ==============================================================================
+df_grafico %>%
+  e_charts(x = data) %>%
+  e_tooltip(
+    formatter = e_tooltip_item_formatter("percent", digits = 1)
+  ) %>%
+  e_y_axis(
+    name = "Participação (%)",
+    formatter = e_axis_formatter("percent", digits = 0),
+    max = 0.9, # Define o limite máximo em 100% (evita os 120%)
+    nameTextStyle = list(color = "#666666", fontWeight = "bold")
+  ) %>%
+  # Adicionando barWidth para aumentar a largura (ex: 40% ou valor fixo)
+  e_bar(`Demais Etnias`, stack = "grp") %>%
+  e_bar(`Pretos-Pardos-Negros`, stack = "grp" ) %>%
+  e_bar(Indígenas, stack = "grp") %>%
+  # Estética e Controles
+  e_datazoom(show = TRUE, toolbox = FALSE) %>%
+  e_legend(right = 10, top = 20) %>%
+  e_title(text = "Distribuição Étnica de Servidores", subtext = "Dados Consolidados (2018-2026)") %>%
+  e_theme_custom('{"color":["#004580","#ef0219", "#a38a17"]}')
+
+```
+
+
+```{r tabela3, echo=FALSE, message=FALSE, warning=FALSE}
+library(reactable)
+library(htmltools)
+
+# Preparando os dados para a tabela (último mês disponível: 202602)
+dados_tabela <- df_etnia %>%
+  filter(mes == 202602) %>%
+  select(nome_cor_origem_etnica, n, pct) %>%
+  arrange(desc(pct))
+
+# Criando a tabela interativa
+reactable(
+  dados_tabela,
+  pagination = FALSE,
+  highlight = TRUE,
+  compact = TRUE,
+  theme = reactableTheme(
+    borderColor = "#dfe2e5",
+    stripedColor = "#f6f8fa",
+    highlightColor = "#eab67644",
+    cellPadding = "8px 12px",
+    style = list(fontFamily = "Roboto Condensed, sans-serif")
+  ),
+  columns = list(
+    nome_cor_origem_etnica = colDef(
+      name = "Cor/Origem Étnica",
+      minWidth = 150,
+      style = list(fontWeight = "bold")
+    ),
+    n = colDef(
+      name = "Total de Servidores",
+      format = colFormat(separators = TRUE, locales = "pt-BR")
+    ),
+    pct = colDef(
+      name = "Proporção (%)",
+      defaultSortOrder = "desc",
+      format = colFormat(percent = TRUE, digits = 1),
+      # Adicionando uma barra visual dentro da tabela
+      cell = function(value) {
+        width <- paste0(value * 100, "%")
+        bar_color <- case_when(
+          value > 0.4 ~ "#2c3e50",
+          value > 0.1 ~ "#e67e22",
+          TRUE ~ "#95a5a6"
+        )
+        bar <- div(
+          style = list(background = bar_color, width = width, height = "14px", borderRadius = "2px")
+        )
+        div(style = list(display = "flex", alignItems = "center"),
+            div(style = list(width = "45px", marginRight = "10px"), sprintf("%.1f%%", value * 100)),
+            bar)
+      }
+    )
+  )
+)
+```
+
+```{r tabela4, echo=FALSE, message=FALSE, warning=FALSE}
+library(sparklyr)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+
+# Filtrando apenas indígenas no último mês disponível (Fev 2026)
+# O processamento acontece no cluster, não no seu PC!
+df_indigenas_uf <- df_spark %>%
+  filter(mes == 202602, nome_cor_origem_etnica == "INDIGENA") %>%
+  group_by(uf) %>%
+  summarise(total_indigenas = n()) %>%
+  collect() # Agora sim, trazemos apenas 27 linhas para o R
+
+# Preparando o gráfico
+df_indigenas_uf %>%
+  mutate(uf = fct_reorder(uf, total_indigenas)) %>%
+  ggplot(aes(x = total_indigenas, y = uf, fill = total_indigenas)) +
+  geom_col(show.legend = FALSE) +
+  # Adicionando o número exato ao lado da barra
+  geom_text(aes(label = total_indigenas), hjust = -0.2, family = "roboto", size = 3.5) +
+  scale_fill_viridis(option = "mako", direction = -1) +
+  labs(
+    title = "Distribuição de <span style='color:#27ae60;'>Servidores Indígenas</span> por UF",
+    subtitle = "Total de servidores ativos (Fev/2026)",
+    caption = "Fonte: MGI-BRONZE | Visualização: Marcelo Ribeiro",
+    x = "Quantidade de Servidores",
+    y = NULL
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    plot.title = element_markdown(family = "title_font", size = 20, face = "bold"),
+    panel.grid.major.y = element_blank(),
+    axis.text.y = element_text(face = "bold"),
+    plot.margin = margin(20, 30, 20, 20)
+  )
+```
+
+
+```{r mapa, echo=FALSE, message=FALSE, warning=FALSE}
+# ==============================================================================
+# 2. PROCESSAMENTO NO DATABRICKS (SPARK)
+# ==============================================================================
+
+# Agregação no Cluster
+df_indigenas_uf <- df_spark %>%
+  filter(mes == 202602, nome_cor_origem_etnica == "INDIGENA") %>%
+  group_by(uf) %>%
+  summarise(total_indigenas = n()) %>%
+  collect() 
+
+# ==============================================================================
+# 3. PADRONIZAÇÃO E JOIN (Uso do munifacil)
+# ==============================================================================
+
+
+# Carregamento da malha via geobr
+mapa_br <- geobr::read_state(year = 2020, showProgress = FALSE)
+
+# Join Final
+df_mapa_final <- mapa_br %>%
+  left_join(df_indigenas_uf, by = c("abbrev_state" = "uf")) %>%
+  mutate(total_indigenas = coalesce(total_indigenas, 0))
+
+```
+
+```{r}
+# ==============================================================================
+# 4. GERAÇÃO DO MAPA COM GGPLOT2
+# ==============================================================================
+
+ggplot(data = df_mapa_final) +
+  # Desenha os polígonos dos estados
+  geom_sf(aes(fill = total_indigenas), color = "white", size = 0.15) +
+  
+  # Escala de cores profissional (Mako)
+  scale_fill_viridis(
+    option = "mako", 
+    direction = -1,
+    name = "Servidores Indígenas",
+    labels = scales::label_number(big.mark = ".", decimal.mark = ",")
+  ) +
+  
+  # Adiciona os números em cada UF (Rótulos)
+  geom_sf_text(aes(label = ifelse(total_indigenas > 0, total_indigenas, "")), 
+               color = "white", size = 3.8, family = "roboto", fontface = "bold",
+               check_overlap = TRUE) +
+  
+  # Títulos e Identidade Visual
+  labs(
+    title = "Concentração de Servidores <span style='color:#27ae60;'>Indígenas</span> por UF",
+    subtitle = "Base de dados: Fevereiro de 2026 | Visualização de dados geoespaciais",
+    caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Malhas: geobr (IBGE) | Processamento: R/Spark",
+    x = NULL, y = NULL
+  ) +
+  
+  # Tema minimalista para mapas
+  theme_void(base_family = "roboto") +
+  theme(
+    plot.title = element_markdown(family = "title_font", size = 26, face = "bold", margin = margin(b=5)),
+    plot.subtitle = element_text(size = 14, color = "grey40", margin = margin(b=20)),
+    legend.position = "right",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(20, 20, 20, 20)
+  )
+```
+
+
+## Perfil Demográfico: Pirâmide Etária
+
+A pirâmide etária permite visualizar a distribuição dos servidores por sexo e idade. Este gráfico é essencial para o planejamento sucessório do órgão.
+
+```{r piramide_etaria, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+# 1. Agregação no Spark
+df_piramide <- df_spark %>%
+  filter(mes == 202602) %>% # Filtro para o mês mais recente
+  group_by(nome_faixa_etaria, faixa_etaria, nome_sexo) %>%
+  summarise(total = n(), .groups = "drop") %>%
+  collect() %>%
+  mutate(
+    # Ajuste para criar os dois lados da pirâmide
+    total_ajustado = ifelse(nome_sexo == "Fem", -total, total)
+  )
+
+# 2. Gráfico
+ggplot(df_piramide, aes(x = reorder(nome_faixa_etaria, faixa_etaria), y = total_ajustado, fill = nome_sexo)) +
+  geom_bar(stat = "identity", width = 0.8) +
+  coord_flip() +
+  scale_y_continuous(labels = function(x) format(abs(x), big.mark = ".", decimal.mark = ",")) +
+  scale_fill_manual(values = c("Fem" = "#e67e22", "Mas" = "#2980b9"), name = "Sexo") +
+  labs(
+    title = "Pirâmide Etária dos Servidores Federais",
+    subtitle = "Distribuição por faixa etária e sexo (Fev 2026)",
+    x = "Faixa Etária",
+    y = "Quantidade de Servidores",
+    caption = "Fonte: MGI-BRONZE"
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom"
+  )
+```
+
+
+## Perfil de Escolaridade: Servidores Indígenas
+
+Este Treemap analisa exclusivamente o grupo de servidores que se autodeclaram **Indígenas**. Os grandes blocos representam o nível de instrução, enquanto as subdivisões mostram a distribuição por **Região do Brasil**.
+
+```{r treemap_indigena, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+# ==============================================================================
+# 1. PREPARAÇÃO DOS DADOS (Foco Exclusivo em Indígenas)
+# ==============================================================================
+library(treemapify)
+library(stringr)
+
+df_treemap_ind <- df_spark %>%
+  filter(mes == 202602, nome_cor_origem_etnica == "INDIGENA") %>%
+  group_by(nome_escolaridade_completa, nome_regiao_politica) %>%
+  summarise(total = n(), .groups = "drop") %>%
+  collect() %>%
+  mutate(
+    nome_escolaridade_completa = str_trim(nome_escolaridade_completa),
+    # Abreviações para não poluir o gráfico
+    nome_escolaridade_completa = str_replace(nome_escolaridade_completa, "Ensino Superior Completo", "Superior"),
+    nome_escolaridade_completa = str_replace(nome_escolaridade_completa, "Pós-Graduação", "Pós"),
+    nome_regiao_politica = str_trim(nome_regiao_politica)
+  )
+
+# ==============================================================================
+# 2. GERAÇÃO DO TREEMAP
+# ==============================================================================
+ggplot(df_treemap_ind, aes(area = total, 
+                           fill = nome_escolaridade_completa, 
+                           subgroup = nome_escolaridade_completa, 
+                           label = nome_regiao_politica)) +
+  
+  # Camada de retângulos
+  geom_treemap(color = "white", size = 0.5) +
+  
+  # Bordas dos níveis de escolaridade
+  geom_treemap_subgroup_border(color = "white", size = 2) +
+  
+  # Título do Nível de Escolaridade (Centro do Bloco)
+  geom_treemap_subgroup_text(place = "centre", grow = TRUE, alpha = 0.15, 
+                             color = "black", fontface = "bold") +
+  
+  # Sigla da Região (Dentro dos sub-blocos)
+  geom_treemap_text(color = "white", place = "topleft", reflow = TRUE, 
+                    size = 12, fontface = "bold") +
+  
+  # Paleta de cores (Verdes para remeter à temática indígena)
+  scale_fill_viridis_d(option = "mako", direction = -1) + 
+  
+  labs(
+    title = "Distribuição de Escolaridade: Servidores <span style='color:#27ae60;'>INDÍGENAS</span>",
+    subtitle = "Análise por Nível de Instrução e Região Política (Dez/2024)",
+    caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
+    fill = "Escolaridade"
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    plot.title = element_markdown(size = 22, face = "bold"),
+    plot.subtitle = element_text(size = 14, color = "grey40"),
+    legend.position = "bottom"
+  )
+
+```
