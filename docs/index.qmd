@@ -45,25 +45,6 @@ Este relatório apresenta uma análise da evolução histórica da composição 
 
 ```{r databricks, message=FALSE, warning=FALSE}
 
-# ==============================================================================
-# 2. CONEXÃO COM O DATABRICKS
-# ==============================================================================
-
-
-sc <- spark_connect(
-  master     = Sys.getenv("master"),
-  method     = Sys.getenv("method"), 
-  cluster_id = Sys.getenv("cluster_id"), 
-  token      = Sys.getenv("token_databricks"), 
-  envname    = "r-databricks-py312"
-  )
-
-# Leitura dos dados apontando para o Volume Bronze
-df_spark <- spark_read_parquet(
-  sc,
-  name = "servidores",
-  path = "/Volumes/mgi-bronze/raw_data_volumes/mgi/cginf/servidores_dwsiape_mensal_funcoes/"
-)
 
 ```
 
@@ -72,29 +53,7 @@ df_spark <- spark_read_parquet(
 Nesta seção, realizamos o processamento dos dados brutos para identificar a trajetória das diferentes autodeclarações étnicas. Para garantir a precisão do destaque visual (highlight), aplicamos uma limpeza nas strings para neutralizar espaços extras ou variações de acentuação (como "INDIGENA" vs "INDÍGENA"), garantindo que a categoria de interesse seja corretamente mapeada.
 
 ```{r wrangling, message=FALSE, warning=FALSE}
-
-# ==============================================================================
-# 3. DATA WRANGLING (Spark + R)
-# ==============================================================================
-df_etnia <- df_spark %>%
-  group_by(mes, nome_cor_origem_etnica) %>%
-  summarise(n = n(), .groups = "drop") %>%
-  collect() %>% 
-  mutate(
-    # Limpeza de strings para garantir o match com a base
-    nome_limpo = str_trim(nome_cor_origem_etnica),
-    nome_limpo = str_to_upper(nome_limpo),
-    
-    # Identifica categoria indígena (robusto para variações)
-    is_indigena = ifelse(str_detect(nome_limpo, "INDIGENA|INDÍGENA"), "Sim", "Não"),
-    
-    # Conversão de competência para formato de data
-    data = ymd(paste0(mes, "01"))
-  ) %>%
-  group_by(data) %>%
-  mutate(pct = n / sum(n)) %>%
-  ungroup()
-
+df_etnia <- readRDS('../data/df_etnia.rds')
 ```
 ## Panorama Atual
 
@@ -470,11 +429,7 @@ library(viridis)
 
 # Filtrando apenas indígenas no último mês disponível (Fev 2026)
 # O processamento acontece no cluster, não no seu PC!
-df_indigenas_uf <- df_spark %>%
-  filter(mes == 202602, nome_cor_origem_etnica == "INDIGENA") %>%
-  group_by(uf) %>%
-  summarise(total_indigenas = n()) %>%
-  collect() # Agora sim, trazemos apenas 27 linhas para o R
+df_indigenas_uf <- readRDS('../data/df_indigenas_uf.rds')
 
 # Preparando o gráfico
 df_indigenas_uf %>%
@@ -507,11 +462,7 @@ df_indigenas_uf %>%
 # ==============================================================================
 
 # Agregação no Cluster
-df_indigenas_uf <- df_spark %>%
-  filter(mes == 202602, nome_cor_origem_etnica == "INDIGENA") %>%
-  group_by(uf) %>%
-  summarise(total_indigenas = n()) %>%
-  collect() 
+df_indigenas_uf <- readRDS('../data/df_indigenas_uf.rds')
 
 # ==============================================================================
 # 3. PADRONIZAÇÃO E JOIN (Uso do munifacil)
@@ -576,15 +527,7 @@ A pirâmide etária permite visualizar a distribuição dos servidores por sexo 
 
 ```{r piramide_etaria, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
 # 1. Agregação no Spark
-df_piramide <- df_spark %>%
-  filter(mes == 202602) %>% # Filtro para o mês mais recente
-  group_by(nome_faixa_etaria, faixa_etaria, nome_sexo) %>%
-  summarise(total = n(), .groups = "drop") %>%
-  collect() %>%
-  mutate(
-    # Ajuste para criar os dois lados da pirâmide
-    total_ajustado = ifelse(nome_sexo == "Fem", -total, total)
-  )
+df_piramide <- readRDS('../data/df_piramide.rds')
 
 # 2. Gráfico
 ggplot(df_piramide, aes(x = reorder(nome_faixa_etaria, faixa_etaria), y = total_ajustado, fill = nome_sexo)) +
@@ -619,18 +562,7 @@ Este Treemap analisa exclusivamente o grupo de servidores que se autodeclaram **
 library(treemapify)
 library(stringr)
 
-df_treemap_ind <- df_spark %>%
-  filter(mes == 202602, nome_cor_origem_etnica == "INDIGENA") %>%
-  group_by(nome_escolaridade_completa, nome_regiao_politica) %>%
-  summarise(total = n(), .groups = "drop") %>%
-  collect() %>%
-  mutate(
-    nome_escolaridade_completa = str_trim(nome_escolaridade_completa),
-    # Abreviações para não poluir o gráfico
-    nome_escolaridade_completa = str_replace(nome_escolaridade_completa, "Ensino Superior Completo", "Superior"),
-    nome_escolaridade_completa = str_replace(nome_escolaridade_completa, "Pós-Graduação", "Pós"),
-    nome_regiao_politica = str_trim(nome_regiao_politica)
-  )
+df_treemap_ind <- readRDS('../data/df_treemap_ind.rds')
 
 # ==============================================================================
 # 2. GERAÇÃO DO TREEMAP
