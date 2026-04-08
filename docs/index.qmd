@@ -28,11 +28,13 @@ library(stringr)
 library(reactable)
 library(htmltools)
 library(scales)
+library(reticulate)
 
 # Configuração de fontes para estética TidyTuesday
 font_add_google("Roboto Condensed", "roboto")
 font_add_google("Outfit", "title_font")
 showtext_auto()
+
 
 ```
 
@@ -46,13 +48,15 @@ Este relatório apresenta uma análise da evolução histórica da composição 
 # ==============================================================================
 # 2. CONEXÃO COM O DATABRICKS
 # ==============================================================================
+
+
 sc <- spark_connect(
   master     = Sys.getenv("master"),
   method     = Sys.getenv("method"), 
   cluster_id = Sys.getenv("cluster_id"), 
   token      = Sys.getenv("token_databricks"), 
   envname    = "r-databricks-py312"
-)
+  )
 
 # Leitura dos dados apontando para o Volume Bronze
 df_spark <- spark_read_parquet(
