@@ -62,6 +62,7 @@ df_spark <- spark_read_parquet(
 )
 
 ```
+
 ## Análise da Representatividade
 
 Nesta seção, realizamos o processamento dos dados brutos para identificar a trajetória das diferentes autodeclarações étnicas. Para garantir a precisão do destaque visual (highlight), aplicamos uma limpeza nas strings para neutralizar espaços extras ou variações de acentuação (como "INDIGENA" vs "INDÍGENA"), garantindo que a categoria de interesse seja corretamente mapeada.
