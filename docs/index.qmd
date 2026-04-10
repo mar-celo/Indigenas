@@ -34,6 +34,10 @@ library(viridis)
 library(plotly)
 library(crosstalk)
 library(treemapify)
+library(tidyr)
+library(echarts4r)
+library(DT)
+library(crosstalk)
 
 # Configuração de fontes para estética TidyTuesday
 font_add_google("Roboto Condensed", "roboto")
@@ -43,6 +47,18 @@ showtext_auto()
 
 # configuração de paletas e dimensões
 source('../setup_rmd.R')
+
+
+ggplotly_c <- function(gg_obj){
+  ptly_obj <- ggplotly(gg_obj)
+  ptly_obj$x$data <- lapply(ptly_obj$x$data, function(tr) {
+    tr$name <- 
+      tr$name %>%
+      gsub("^\\(|\\)$","",.) %>%
+      gsub(",1$", "", .)
+    tr})
+  ptly_obj
+  }
 
 ```
 
@@ -54,6 +70,36 @@ Este relatório apresenta uma análise da evolução histórica da composição 
 ```{r databricks, message=FALSE, warning=FALSE}
 
 
+```
+
+
+```{r configDT}
+# table
+
+# Definir as configurações da tabela, incluindo o idioma em Português Brasil
+
+
+# Criar a tabela usando datatable com as configurações personalizadas
+configuracao <- list(
+  language = list(
+    infoFiltered = "(filtrado num total de _MAX_ registros)",
+    info = "Exibindo _START_ até _END_ de _TOTAL_ registros",
+    lengthMenu = "Mostrar _MENU_ registros por página",
+    search = "Pesquisar:",
+    paginate = list(
+      first = "Primeiro",
+      last = "Último",
+      `next` = "Próximo",
+      previous = "Anterior"),
+    aria = list(
+      sortAscending = ": ativar para classificar coluna em ordem crescente",
+      sortDescending = ": ativar para classificar coluna em ordem decrescente"
+    )
+  ),
+  dom = 'Bfrtip',
+  buttons = c('csv', 'excel', 'pdf', 'print')
+  
+)
 ```
 
 ## Análise da Representatividade
@@ -105,7 +151,7 @@ reactable(
       minWidth = 150,
       style = function(value) {
         if (grepl("IND.GENA",value,ignore.case = T)) {
-          list(fontWeight = "bold", color = "#fff", backgroundColor = "#0000AA", padding = "10px")
+          list(fontWeight = "bold", color = "#fff", backgroundColor = "#FF7800", padding = "10px")
         } else {
           list(fontWeight = "bold", color = "#2c3e50")
         }
@@ -123,7 +169,7 @@ reactable(
         label <- dados_tabela$nome_cor_origem_etnica[index]
         bar_color <- ifelse(grepl("IND.GENA",
                                   label,ignore.case = T),
-                            pal_primaria[1],
+                            pal_primaria[2],
                             "#919191")
         
         width <- paste0(value * 100, "%")
@@ -173,59 +219,87 @@ label_final <- df_etnia %>%
   filter(data == max(data))%>%
              mutate(data = year(data),pct = round(100*pct,2))
 
+
+df_indigena_mes <- 
+  df_etnia %>% 
+  filter(is_indigena == "Sim") %>%
+  mutate(data = year(data),pct = round(100*pct,2))
+
+codf <- df_indigena_mes[mes == 202602, max(n)/max(pct)]
+
 # 4. Construção do gráfico
-ggplot_cat(df_etnia %>% 
-             filter(is_indigena == "Sim") %>%
-             mutate(data = year(data),pct = round(100*pct,2)),
-           aes(x = data, 
-               y = pct)
-           ) +
+# 4. Construção do gráfico
+txt_size <- 30 
+ggplot_cat(df_indigena_mes,
+           aes(x = data)
+) +
   
   # Linhas para todas as categorias
-  geom_line(alpha = 0.8,size = 2) +
+  geom_line(aes(y = pct*codf,
+                color = "Percentual"),
+            alpha = 0.8,
+            size = 2)  +
   
   # Pontos apenas para a categoria indígena (para destaque extra)
-  geom_point(size = 3.5) +
+  geom_point(aes(y = pct*codf,
+                 col = "Percentual"),
+             size = 3.5) +
+  
+  # Linhas para todas as categorias
+  geom_line(aes(y = n,
+                col = "Total"),
+            alpha = 0.8,
+            size = 2) +
+  
+  # Pontos apenas para a categoria indígena (para destaque extra)
+  geom_point(aes(y = n,
+                 color = "Total"),
+             size = 3.5)  +
   
   # Etiqueta de texto direta
   geom_text(data = label_final, 
-            aes(label = paste0(dt_max_show,": ",pct, "%")),
-            hjust = -8, vjust = 3, family = "roboto", 
-            position = position_nudge(y = -0.03,x = -0.9),
-            fontface = "bold", size = 5, show.legend = FALSE) +
-  # Escalas de Eixos
-  scale_y_continuous(labels = percent_format(accuracy = 0.1), limits = c(0, NA)) +
-  
+            aes(y = n,
+                label = paste0(dt_max_show,":\n",n," (",pct, "%)")),
+            # hjust = -8,
+            # vjust = 3,
+            family = "roboto", 
+            position = position_nudge(y = -55.8,x = -1),
+            fontface = "bold",
+            # color = pal_primaria['principal'],
+            size = 5, 
+            show.legend = FALSE) +
+  # Tema
+  theme_minimal(base_family = "roboto") + 
   # Títulos e Identidade Visual
   labs(
-    title = "Série Histórica: Percentual de Indígenas na APF",
+    title = "Série Histórica: Total e percentual de Indígenas na APF",
     # subtitle = "Proporção de servidores ativos por autodeclaração (2018-2026)",
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
-    x = NULL, y = "Proporção (%)"
+    x = NULL, y =NULL,colour = NULL
   ) +
-  # Tema
-  theme_minimal(base_family = "roboto") +
   theme(
-    plot.title = element_markdown(family = "title_font",
-                                  size = 20, 
-                                  face = "bold",
-                                  color = pal_primaria[1],
-                                  hjust =-15),
-    plot.subtitle = element_text(size = 15, color = "grey40", margin = margin(b = 25)),
-    plot.caption = element_text(size = 15, color = "grey60", margin = margin(t = 20)),
+    plot.title = element_text(family = "title_font",
+                              size = 45, 
+                              face = "bold",
+                              color = pal_primaria[1],
+                              hjust = 0),
+    plot.subtitle = element_text(size = txt_size, color = "grey40", margin = margin(b = 25)),
+    plot.caption = element_text(size = txt_size, color = "grey60", margin = margin(t = 20)),
     legend.position = "bottom",
-    legend.title = element_text(size = 15,face = "bold"),
+    legend.title = element_text(size = txt_size,face = "bold"),
+    legend.text = element_text(size = txt_size),
     panel.grid.minor = element_blank(),
     panel.grid.major.x = element_blank(),
-    axis.title = element_text(size = 15),
-    axis.text = element_text(size = 15, color = "#555555")
-  ) -> serie_indigenas
+    axis.title = element_text(size = txt_size),
+    axis.text = element_text(size = txt_size, color = "#555555")
+  )   -> serie_indigenas
 
-ggplotly(serie_indigenas)
+serie_indigenas
+# ggplotly_c(serie_indigenas)
 ```
 
 
-## Evolução Étnica (Echarts4r)
+## Natureza jurídica e órgãos
 
 Este gráfico utiliza a biblioteca **Echarts4r** para criar uma visualização interativa e empilhada da composição étnica, agrupando os dados em três grandes categorias para facilitar a análise comparativa ao longo do tempo.
 
@@ -233,21 +307,19 @@ Este gráfico utiliza a biblioteca **Echarts4r** para criar uma visualização i
 # ==============================================================================
 # 1. PREPARAÇÃO DOS DADOS (Agrupamento e Pivotagem)
 # ==============================================================================
-library(tidyr)
-library(echarts4r)
 
-df_grafico <- df_etnia %>%
-  mutate(
-    categoria_agrupada = case_when(
-      nome_limpo %in% c("PRETA", "PARDA", "NEGRA") ~ "Pretos-Pardos-Negros",
-      is_indigena == "Sim" ~ "Indígenas",
-      TRUE ~ "Demais Etnias"
-    )
-  ) %>%
-  group_by(data, categoria_agrupada) %>%
-  summarise(pct_soma = sum(pct), .groups = "drop") %>%
+df_natjur <- readRDS('../data/df_natjur.rds') %>% setDT
+
+df_grafico <- df_natjur[nome_cor_origem_etnica == 'INDIGENA',
+                        .(total = sum(total)),
+                        .(data = as.Date(paste0(ano,'0101'),"%Y%m%d"),
+                          nome_natureza_juridica_cnnj)
+                        ] %>% 
+  .[,pct_soma := round(total/sum(total),5),.(data)] %>% 
+  select(-total) %>%
   # Transformar para formato largo (wider)
-  pivot_wider(names_from = categoria_agrupada, values_from = pct_soma) %>%
+  pivot_wider(names_from = nome_natureza_juridica_cnnj, values_from = pct_soma) %>%
+  mutate(ano = year(data)) %>% 
   arrange(data)
 
 # ==============================================================================
@@ -259,21 +331,22 @@ df_grafico %>%
     formatter = e_tooltip_item_formatter("percent", digits = 1)
   ) %>%
   e_y_axis(
-    name = "Percentual Etnia",
+    name = "Percentual Natureza Jurídica",
     formatter = e_axis_formatter("percent", digits = 1),
     nameTextStyle = list(color = "#666666", fontWeight = "bold")
   ) %>%
   # Barras empilhadas (stack = "grp")
-  e_bar(`Demais Etnias`, stack = "grp") %>%
-  e_bar(`Pretos-Pardos-Negros`, stack = "grp") %>%
-  e_bar(Indígenas, stack = "grp") %>%
+  e_bar(`Autarquia Federal`, stack = "grp") %>%
+  e_bar(`Fundacao Federal`, stack = "grp") %>%
+  e_bar(`Poder Executivo Federal`, stack = "grp") %>%
   # Customizações estéticas
   e_datazoom(show = TRUE, toolbox = FALSE) %>%
-  e_legend(right = 0) %>%
-  e_title(text = "Composição Étnica no Tempo"
+  # e_zoom(show = TRUE, toolbox = FALSE) %>%%>%
+  e_legend(right = 20, top = 'center',orient = 'vertical') %>%
+  e_title(text = "Natureza Jurídica do Órgão"
           ) %>%
   # Paleta de cores: Azul (Demais), Vermelho (Negros), Dourado (Indígenas)
-  e_theme_custom('{"color":["#004580","#ef0219", "#a38a17"]}')
+  e_theme_custom('{"color":["#0000AA","#FF7800", "#00A100"]}')
 ```
 
 ## Perfil Étnico Agrupado (Echarts4r)
@@ -281,51 +354,94 @@ df_grafico %>%
 Nesta visualização, as etnias são consolidadas em três grupos principais para destacar a evolução da representatividade. As barras foram alargadas para melhor leitura visual, e o eixo vertical foi limitado a 100% para evitar distorções de escala.
 
 ```{r grafico_echarts_ajustado, echo=FALSE, message=FALSE, warning=FALSE}
-# ==============================================================================
-# 1. PREPARAÇÃO E AGRUPAMENTO
-# ==============================================================================
-library(tidyr)
-library(echarts4r)
-library(dplyr)
+df_grafico <- 
+  df_natjur[nome_cor_origem_etnica == 'INDIGENA',
+            .(total = sum(total)),
+            .(data = as.Date(paste0(ano,'0101'),"%Y%m%d"),
+              `Natureza Jurídica` = nome_natureza_juridica_cnnj)
+            ] %>% 
+  .[,`:=`(ano = year(data),
+          `Percentual` = round(100*total/sum(total),2)),
+    .(data)]
 
-df_grafico <- df_etnia %>%
-  mutate(
-    categoria_agrupada = case_when(
-      nome_limpo %in% c("PRETA", "PARDA", "NEGRA") ~ "Pretos-Pardos-Negros",
-      is_indigena == "Sim" ~ "Indígenas",
-      TRUE ~ "Demais Etnias"
-    )
-  ) %>%
-  group_by(data, categoria_agrupada) %>%
-  summarise(pct_soma = sum(pct), .groups = "drop") %>%
-  pivot_wider(names_from = categoria_agrupada, values_from = pct_soma) %>%
-  arrange(data)
+ggplot_cat(df_grafico,
+           aes(x = ano,y = Percentual,fill = `Natureza Jurídica`)
+           ) + 
+  geom_col() + 
+  scale_x_continuous(breaks =
+                       seq(min(df_grafico$ano),
+                           max(df_grafico$ano))) + 
+  labs(y = "Percentual dentre os indígenas",
+       x = "Ano",
+       fill = "Natureza jurídica") -> natjur_plot
 
-# ==============================================================================
-# 2. CONSTRUÇÃO DO GRÁFICO (Barras Largas e Eixo Y Ajustado)
-# ==============================================================================
-df_grafico %>%
-  e_charts(x = data) %>%
-  e_tooltip(
-    formatter = e_tooltip_item_formatter("percent", digits = 1)
-  ) %>%
-  e_y_axis(
-    name = "Participação (%)",
-    formatter = e_axis_formatter("percent", digits = 0),
-    max = 0.9, # Define o limite máximo em 100% (evita os 120%)
-    nameTextStyle = list(color = "#666666", fontWeight = "bold")
-  ) %>%
-  # Adicionando barWidth para aumentar a largura (ex: 40% ou valor fixo)
-  e_bar(`Demais Etnias`, stack = "grp") %>%
-  e_bar(`Pretos-Pardos-Negros`, stack = "grp" ) %>%
-  e_bar(Indígenas, stack = "grp") %>%
-  # Estética e Controles
-  e_datazoom(show = TRUE, toolbox = FALSE) %>%
-  e_legend(right = 10, top = 20) %>%
-  e_title(text = "Distribuição Étnica de Servidores", subtext = "Dados Consolidados (2018-2026)") %>%
-  e_theme_custom('{"color":["#004580","#ef0219", "#a38a17"]}')
-
+ggplotly_c(natjur_plot)
+  
 ```
+
+
+```{r percentuais_orgao}
+df_orgao <- readRDS('../data/df_orgao.rds') %>% setDT
+
+
+## percentuais de indígenas por órgão
+df_orgao[,`:=`(
+  total_orgao = sum(total),
+  pct_indigena = round(100*total/sum(total),2)),
+  .(orgao_vinc)] %>%
+  filter(nome_cor_origem_etnica == "INDIGENA") %>%
+  setorder(-pct_indigena) %>%
+  select(nome_orgao_vinc,no_orgao,total_orgao,total,pct_indigena) -> df_orgao
+
+
+dom_pct_ind <- df_orgao$pct_indigena
+col_pct <- col_numeric(palette = c("white",pal_primaria['principal']),
+                       domain =dom_pct_ind )
+
+setnames(df_orgao,
+         c("Órgão vinculado",
+           "Sigla do Órgão",
+           "Total de vínculos",
+           "Total de vínculos de indígenas",
+           "Percentual indígenas no órgão"))
+
+
+dt2 <- df_orgao %>%
+  DT::datatable(#filter = "top",
+                #style = "bootstrap",
+                class = "compact",
+                width = "100%",
+                extensions = 'Buttons',
+                options = configuracao,
+                caption = 
+                  tags$caption(
+                    style = 
+                    "caption-side: top;
+                    text-align: left;
+                    font-size: 24px;
+                    color: #0000AA;",
+                    "Por órgão vinculado"
+                    )
+                ) %>%
+  formatStyle(
+    "Percentual indígenas no órgão",
+    background = styleEqual(dom_pct_ind,col_pct(dom_pct_ind)),
+    backgroundSize = '98% 88%',
+    backgroundRepeat = 'no-repeat',
+    backgroundPosition = 'center'
+  ) 
+
+dt2
+```
+
+
+```{r ntjur_orgao}
+# bscols(ggplotly(natjur_plot),
+#        dt2,
+#        widths = c(6,6),
+#        devise = 'sm')
+```
+
 
 ```{r uf}
 
@@ -372,7 +488,7 @@ df_indigenas_uf %>%
     # plot.margin = margin(20, 30, 20, 20) 
   ) -> plot_uf
 
-ggplotly(plot_uf)
+ggplotly_c(plot_uf)
 ```
 
 
@@ -397,7 +513,7 @@ df_mapa_final <- mapa_br %>%
 
 ```
 
-```{r show_mapa}
+```{r show_mapa, eval= F}
 # ==============================================================================
 # 4. GERAÇÃO DO MAPA COM GGPLOT2
 # ==============================================================================
@@ -565,7 +681,9 @@ ggplot(df_treemap_ind, aes(area = total,
        ) +
   
   # Camada de retângulos
-  geom_treemap(color = "white", size = 0.5) +
+  geom_treemap(color = "white",
+               size = 1.5
+               ) +
   
   # Bordas dos níveis de escolaridade
   # geom_treemap_subgroup_border(color = "white", size = 2) +
@@ -575,8 +693,10 @@ ggplot(df_treemap_ind, aes(area = total,
                              # color = "black", fontface = "bold") +
   
   # Sigla da Região (Dentro dos sub-blocos)
-  geom_treemap_text(color = "white", place = "topleft", reflow = TRUE, 
-                    size = 12, fontface = "bold") +
+  geom_treemap_text(color = "white", 
+                    place = "bottomright",
+                    reflow = TRUE, 
+                    size = 25, fontface = "bold") +
   
   # Paleta de cores (Verdes para remeter à temática indígena)
   # scale_fill_viridis_d(option = "mako", direction = -1) + 
@@ -591,11 +711,15 @@ ggplot(df_treemap_ind, aes(area = total,
   ) +
   theme_minimal(base_family = "roboto") +
   theme(
-    plot.title = element_markdown(size = 22, face = "bold",hjust = 0,color = "#0000aa"),
-    plot.subtitle = element_text(size = 14, color = "grey40"),
+    text  = element_text(size = 20),
+    plot.title = element_text(size = 26,
+                              face = "bold",
+                              just = 0,
+                              halign = 0,
+                              color = "#0000aa"),
+    plot.subtitle = element_text(size = 22, color = "grey40"),
     legend.position = "bottom"
   ) -> treemap_escol
 
-
-ggplotly(treemap_escol)
+treemap_escol
 ```
