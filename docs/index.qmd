@@ -50,13 +50,21 @@ source('../setup_rmd.R')
 
 
 ggplotly_c <- function(gg_obj){
+  seen <- c()
   ptly_obj <- ggplotly(gg_obj)
   ptly_obj$x$data <- lapply(ptly_obj$x$data, function(tr) {
-    tr$name <- 
-      tr$name %>%
+    nm <- tr$name %>%
       gsub("^\\(|\\)$","",.) %>%
-      gsub(",1$", "", .)
-    tr})
+      gsub(",[0-9]$", "", .)
+    
+    if(nm %in% seen){
+      tr$showlegend  <- FALSE
+      }else{
+        tr$name <- nm
+        seen <<- c(seen,tr$name)
+        }
+    tr
+    })
   ptly_obj
   }
 
@@ -64,7 +72,7 @@ ggplotly_c <- function(gg_obj){
 
 
 ## Introdução
-Este relatório apresenta uma análise da evolução histórica da composição étnica dos servidores públicos federais, com um foco especial na trajetória da representatividade indígena. Os dados são processados diretamente do ambiente Databricks (MGI-BRONZE) via Spark, permitindo a manipulação de grandes volumes de dados de forma eficiente e segura.
+Este relatório apresenta uma análise da evolução histórica da composição étnica dos Vínculos públicos federais, com um foco especial na trajetória da representatividade indígena. Os dados são processados diretamente do ambiente Databricks (MGI-BRONZE) via Spark, permitindo a manipulação de grandes volumes de dados de forma eficiente e segura.
 
 
 ```{r databricks, message=FALSE, warning=FALSE}
@@ -112,6 +120,7 @@ df_etnia <- readRDS('../data/df_etnia.rds') %>% setDT
 
 # mês referência
 dt_range <- df_etnia[,range(data)] 
+dt_max_siape <- df_etnia[,max(mes)]
 dt_max_show <- dt_range[2] %>% format("%B/%Y") %>% str_to_title()
 ```
 
@@ -158,7 +167,7 @@ reactable(
       }
     ),
     n = colDef(
-      name = "Total de Servidores",
+      name = "Total de Vínculos",
       align = "center",
       format = colFormat(separators = TRUE, locales = "pt-BR")
     ),
@@ -225,7 +234,7 @@ df_indigena_mes <-
   filter(is_indigena == "Sim") %>%
   mutate(data = year(data),pct = round(100*pct,2))
 
-codf <- df_indigena_mes[mes == 202602, max(n)/max(pct)]
+codf <- df_indigena_mes[mes == dt_max_siape, max(n)/max(pct)]
 
 # 4. Construção do gráfico
 # 4. Construção do gráfico
@@ -268,34 +277,316 @@ ggplot_cat(df_indigena_mes,
             # color = pal_primaria['principal'],
             size = 5, 
             show.legend = FALSE) +
-  # Tema
-  theme_minimal(base_family = "roboto") + 
   # Títulos e Identidade Visual
   labs(
     title = "Série Histórica: Total e percentual de Indígenas na APF",
-    # subtitle = "Proporção de servidores ativos por autodeclaração (2018-2026)",
+    # subtitle = "Proporção de Vínculos ativos por autodeclaração (2018-2026)",
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
     x = NULL, y =NULL,colour = NULL
-  ) +
-  theme(
-    plot.title = element_text(family = "title_font",
-                              size = 45, 
-                              face = "bold",
-                              color = pal_primaria[1],
-                              hjust = 0),
-    plot.subtitle = element_text(size = txt_size, color = "grey40", margin = margin(b = 25)),
-    plot.caption = element_text(size = txt_size, color = "grey60", margin = margin(t = 20)),
-    legend.position = "bottom",
-    legend.title = element_text(size = txt_size,face = "bold"),
-    legend.text = element_text(size = txt_size),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    axis.title = element_text(size = txt_size),
-    axis.text = element_text(size = txt_size, color = "#555555")
   )   -> serie_indigenas
 
-serie_indigenas
-# ggplotly_c(serie_indigenas)
+# serie_indigenas
+ggplotly_c(serie_indigenas)
+```
+
+## Vínculos efetivos
+
+```{r efetivos}
+df_efetivos <- readRDS('../data/df_efetivos.RDS')
+
+## plot 1
+df_efetivos %>%
+  filter(mes == dt_max_siape)  %>%
+  # .[,.(total = sum(total)),
+  #   .(nome_sexo,
+  #     efetivo,
+  #     etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+  #                    "Indígenas",
+  #                    "Demais raça/cor")
+  #     )] %>%
+  .[,p := round(100*total/sum(total)),
+    .(nome_sexo,
+      nome_cor_origem_etnica 
+      )] %>%
+  #sexo como fator ordenado
+  .[,nome_sexo2 := factor(nome_sexo,levels = c("Mas","Fem"),ordered = T)] %>% 
+  filter(efetivo & nome_cor_origem_etnica != "NAO INFORMADO")%>%
+  ggplot_cat(aes(x = nome_cor_origem_etnica, #etnia,
+                 y = p,
+                 fill = nome_sexo2)) +
+  geom_col(position = 'dodge') +
+  ylim(c(0,110)) + 
+  geom_text(aes(label = paste0(p,"%")),
+            size = 5,
+            col = pal_primaria["principal"],
+            position = position_dodge2(width = 1),
+            hjust = -0.2) + 
+  coord_flip() +
+  labs(title = paste0("Incidência de Vínculos efetivos por sexo e raça/cor, ",
+                      dt_max_show),
+       x = "Percentual de Vínculos efetivos",
+       y = "Raça/cor",
+       fill = NULL)  -> efetivos_sexo_etnia
+
+ggplotly_c(efetivos_sexo_etnia) %>%
+  plotly::layout(legend = list(x = 0.45,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+
+```
+
+
+```{r serie_efetivos}
+
+## plot 2
+
+
+df_efetivos[,.(total = sum(total)),
+            .(mes,
+              # nome_sexo,
+              etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+                             "Indígenas",
+                             "Demais raça/cor") ,
+              efetivo)]  %>%
+  .[,p := round(100*total/sum(total)),
+    .(mes,
+      # nome_sexo,
+      etnia )] %>%
+  # filter( nome_cor_origem_etnica == "INDIGENA")%>%
+  filter(efetivo) %>%
+  ggplot_cat(aes(x = mes,
+                 y = p,
+                 # col = ifelse(efetivo,"Efetivos","Não-efetivos")
+                 col = etnia
+                 )
+             ) +
+  geom_line(size = 1.3) +
+  geom_point(size = 2)  +
+  # facet_wrap(~nome_sexo) +
+  labs(title = paste0("Incidência de Vínculos efetivos por mês e raça/cor",
+                      dt_max_show),
+       y = "Percentual de Vínculos efetivos",
+       x = NULL,
+       col = NULL) -> efetivos_mes_etnia
+
+ggplotly_c(efetivos_mes_etnia)%>%
+  plotly::layout(legend = list(x = 0.55,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+
+```
+
+
+## Vínculos com função/liderança
+
+
+```{r funcao}
+df_funcao <- readRDS('../data/df_funcao.RDS')
+
+df_funcao %>%
+  filter(mes == dt_max_siape)  %>%
+  .[,.(total = sum(total)),
+    .(nome_sexo,
+      funcao =
+        !grepl(
+          "s/.*",
+          ignore.case = T,
+          nome_funcao
+        ),
+        # "Sem função",
+        # "Com função"
+      # ,
+      nome_cor_origem_etnica
+      # etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+      #                "Indígenas",
+      #                "Demais raça/cor")
+      )] %>%
+  .[,p := round(100*total/sum(total)),
+    .(nome_sexo,
+      nome_cor_origem_etnica
+    )] %>%
+  #sexo como fator ordenado
+  .[,`:=`(nome_sexo2 = factor(nome_sexo,levels = c("Mas","Fem"),ordered = T),
+          p_ajust = ifelse(nome_sexo == "Fem",-p,p))] %>%
+  filter(funcao & nome_cor_origem_etnica != "NAO INFORMADO")%>%
+  ggplot_cat(aes(x = nome_cor_origem_etnica, #etnia,
+                 y = p_ajust,
+                 fill = nome_sexo2)) +
+  geom_col(position = 'stack') +
+  # ylim(c(-110,110)) +
+  geom_text(aes(label = paste0(abs(p_ajust),"%")),
+            size = 5,
+            col = pal_primaria["principal"],
+            face = 'bold',
+            position = position_stack(vjust =  0.5)#,
+            # hjust = -2
+            ) +
+  coord_flip() +
+  labs(title = paste0("Incidência de vínculos com função, por sexo e raça/cor, ",
+                      dt_max_show),
+       x = "Percentual de vínculos com função",
+       y = "Raça/cor",
+       fill = NULL)-> funcao_sexo_etnia
+
+ggplotly_c(funcao_sexo_etnia) %>%
+  plotly::layout(legend = list(x = 0.45,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+```
+
+```{r serie_funcao}
+df_funcao[,.(total = sum(total)),
+            .(mes,
+              # nome_sexo,
+              etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+                             "Indígenas",
+                             "Demais raça/cor") ,
+              funcao =
+                !grepl(
+                  "s/.*",
+                  ignore.case = T,
+                  nome_funcao
+                )
+              )]  %>%
+  .[,p := round(100*total/sum(total)),
+    .(mes,
+      # nome_sexo,
+      etnia )] %>%
+  # filter( nome_cor_origem_etnica == "INDIGENA")%>%
+  filter(funcao) %>%
+  ggplot_cat(aes(x = mes,
+                 y = p,
+                 # col = ifelse(efetivo,"Efetivos","Não-efetivos")
+                 col = etnia
+  )
+  ) +
+  geom_line(size = 1.3) +
+  geom_point(size = 2)  +
+  # facet_wrap(~nome_sexo) +
+  labs(title = paste0("Incidência de vínculos com função por mês e raça/cor",
+                      dt_max_show),
+       y = "Percentual de vínculos com função",
+       x = NULL,
+       col = NULL) -> funcao_mes_etnia
+
+ggplotly_c(funcao_mes_etnia)%>%
+  plotly::layout(legend = list(x = 0.55,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+
+```
+
+
+```{r piramide_niveis}
+df_funcao_total <- readRDS("../data/df_funcao_total.rds")
+
+
+df_funcao_total %>%
+  filter(mes == dt_max_siape) %>%
+  ggplot_cat(aes(x = nivel_ord,
+             # y = 100*total_funcao_adj/total,
+             y = total_funcao_adj,
+             fill = nivel_sexo)
+         ) +
+  geom_col(position = 'stack') +
+  geom_hline(yintercept = 0) +
+  geom_text(aes(label = total_funcao),
+            # position = position_dodge2(width = 0.8),
+            vjust = 0.5,
+            hjust = 0.5,
+            size = 5,
+            col = pal_primaria['principal']) +
+  labs(title = paste0("Quantitativo de ocupantes de cargos de liderança em ",
+                      dt_max_show),
+       x = "Nível CCE/FCE",
+       y = "Número de vínculos",
+       fill = "") +
+  facet_wrap(~etnia,ncol = 2,scales = "free_x") +
+  coord_flip() -> prev_tot
+ggplotly_c(prev_tot)
+
+
+df_funcao_total %>%
+  filter(mes == dt_max_siape) %>%
+  ggplot_cat(aes(x = nivel_ord,
+                 # y = 100*total_funcao_adj/total,
+                 y = p_sexo,
+                 fill = nivel_sexo)
+  ) +
+  geom_col(position = 'stack') +
+  geom_hline(yintercept = 0) +
+  geom_text(aes(label = paste0(abs(p_sexo),"%")),
+            # position = position_dodge2(width = 0.8),
+            vjust = 0.5,
+            hjust = 0.5,
+            size = 5,
+            col = pal_primaria['principal']) +
+  labs(title = paste0("Percentual de ocupção de cargos de liderança por gênero em ",
+                      dt_max_show),
+       x = "Nível CCE/FCE",
+       y = "Percentual dentre indígenas, por sexo",
+       fill = "") +
+  facet_wrap(~etnia,ncol = 2,scales = "free_x") +
+  coord_flip() -> prev_perc
+ggplotly_c(prev_perc)
+```
+
+
+```{r serie_niveis}
+df_funcao_total[,.(total = sum(total),
+                   total_fc_cce = sum(total_funcao)),
+                .(ano = ymd(paste0(mes,"01")) %>% year,
+                  etnia,nivel_ord)] %>%
+  filter(ano >= 2022) %>%
+  ggplot_cat(
+    aes(
+      x = ano,
+      y = total_fc_cce,
+      col = nivel_ord)
+    ) +
+  geom_line(size = 1.3) +
+  geom_point(size = 2) +
+  labs(x = NULL,y = "Quantitativo de vínculos",col = NULL) +
+  facet_wrap(.~etnia,scales = "free_y") -> serie_niveis
+
+ggplotly_c(serie_niveis)
+```
+
+
+```{r razao_equivalencia_fce}
+df_funcao_efetivos <- readRDS("../data/df_funcao_efetivos.rds")
+
+df_funcao_efetivos %>%
+  filter(mes > 202112) %>%
+  ggplot_cat(
+    aes(
+      x = mes %>% paste0(.,"01") %>% ymd %>% year,
+      y = round(p_etnia/p_total,1),
+      col = nivel_ord
+      )
+    ) + 
+  geom_line(size =  1.3) + 
+  geom_point(size = 2) + 
+  labs(x = NULL,
+       y = "Razão de equidade",col = NULL) + 
+  facet_wrap(.~nome_sexo)-> serie_razao
+
+ggplotly_c(serie_razao)
+
+
+
 ```
 
 
@@ -468,8 +759,8 @@ df_indigenas_uf %>%
             size = 3.5,
             show.legend = F) +
   labs(
-    title = "Percentual de Servidores Indígenas nas UFs",
-    subtitle = "Total de servidores ativos (Fev/2026)",
+    title = "Percentual de Vínculos Indígenas nas UFs",
+    subtitle = "Total de Vínculos ativos (Fev/2026)",
     x = "Percentual",
     y = NULL
   ) + #-> plot_uf
@@ -513,7 +804,7 @@ df_mapa_final <- mapa_br %>%
 
 ```
 
-```{r show_mapa, eval= F}
+```{r show_mapa}
 # ==============================================================================
 # 4. GERAÇÃO DO MAPA COM GGPLOT2
 # ==============================================================================
@@ -534,12 +825,12 @@ ggplot(data = df_mapa_final) +
   
   # Títulos e Identidade Visual
   labs(
-    title = "Concentração de Servidores Indígenas por UF",
+    title = "Concentração de Vínculos Indígenas por UF",
     subtitle = paste0("Base de dados: ",dt_max_show),
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Malhas: geobr (IBGE) | Processamento: R/Spark",
     x = NULL,
     y = NULL,
-    fill = "Total de servidores indígenas"
+    fill = "Total de Vínculos indígenas"
   ) +
   # Tema minimalista para mapas
   theme_void(base_family = "roboto") +
@@ -561,13 +852,15 @@ ggplotly(mapa_indigenas)
 
 ## Perfil Demográfico: Pirâmide Etária
 
-A pirâmide etária permite visualizar a distribuição dos servidores por sexo e idade. Este gráfico é essencial para o planejamento sucessório do órgão.
+A pirâmide etária permite visualizar a distribuição dos Vínculos por sexo e idade. Este gráfico é essencial para o planejamento sucessório do órgão.
 
 ```{r piramide_etaria, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
 # 1. Agregação no Spark
 df_piramide <- readRDS('../data/df_piramide.rds')  %>% 
   setDT %>%
   filter(nome_faixa_etaria != "15 a 18 anos")
+
+
 df_piramide_indigena <- readRDS('../data/df_piramide_indigena.rds') %>% 
   setDT %>%
   filter(nome_faixa_etaria != "15 a 18 anos")
@@ -585,10 +878,10 @@ pir_indigena <-
                                                  decimal.mark = ",")) +
   scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
   labs(
-    title = "Servidores Federais Indígenas",
+    title = "Vínculos Indígenas",
     subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
     x = "Faixa Etária",
-    y = "Servidores Indígenas"
+    y = "Quantidade"
   ) +
   theme_minimal(base_family = "roboto") +
   theme(
@@ -620,10 +913,10 @@ pir_federais <-
                                                  decimal.mark = ",")) +
   scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
   labs(
-    title = "Total de Servidores",
+    title = "Total de Vínculos",
     subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
     x = "Faixa Etária",
-    y = "Quantidade de Servidores"
+    y = "Quantidade"
   ) +
   theme_minimal(base_family = "roboto") +
   theme(
@@ -635,7 +928,7 @@ pir_federais <-
   ) 
 
 pir_federais <- ggplotly(pir_federais) %>%
-  plotly::layout(legend = list(x = 0.45,
+  plotly::layout(legend = list(x = 0.55,
                                y = 0,
                                xanchor = "center",
                                yanchor = "upper",
@@ -652,9 +945,9 @@ bscols(pir_federais,
 ```
 
 
-## Perfil de Escolaridade: Servidores Indígenas
+## Perfil de Escolaridade: Vínculos Indígenas
 
-Este Treemap analisa exclusivamente o grupo de servidores que se autodeclaram **Indígenas**. Os grandes blocos representam o nível de instrução, enquanto as subdivisões mostram a distribuição por **Região do Brasil**.
+Este Treemap analisa exclusivamente o grupo de Vínculos que se autodeclaram **Indígenas**. Os grandes blocos representam o nível de instrução, enquanto as subdivisões mostram a distribuição por **Região do Brasil**.
 
 ```{r treemap_indigena, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
 # ==============================================================================
@@ -704,22 +997,26 @@ ggplot(df_treemap_ind, aes(area = total,
   scale_fill_discrete(palette = pal_complementar.f) +
   
   labs(
-    title = "Distribuição de Escolaridade: Servidores INDÍGENAS",
+    title = "Distribuição de Escolaridade: Vínculos INDÍGENAS",
     subtitle = paste0("Análise por Nível de Instrução e Região Política (",dt_max_show,")"),
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
     fill = "Escolaridade"
-  ) +
-  theme_minimal(base_family = "roboto") +
-  theme(
-    text  = element_text(size = 20),
-    plot.title = element_text(size = 26,
-                              face = "bold",
-                              just = 0,
-                              halign = 0,
-                              color = "#0000aa"),
-    plot.subtitle = element_text(size = 22, color = "grey40"),
-    legend.position = "bottom"
-  ) -> treemap_escol
+  ) + 
+  plot_config -> treemap_escol
+
+ # +
+ #  theme_minimal(base_family = "roboto") +
+ #  theme(
+ #    text  = element_text(size = 20),
+ #    plot.title = element_text(size = 26,
+ #                              face = "bold",
+ #                              just = 0,
+ #                              halign = 0,
+ #                              color = "#0000aa"),
+ #    plot.subtitle = element_text(size = 22, color = "grey40"),
+ #    legend.position = "bottom"
+ #  )
 
 treemap_escol
 ```
+

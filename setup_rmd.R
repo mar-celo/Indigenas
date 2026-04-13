@@ -77,10 +77,26 @@ plot_color_cont2 <- scale_colour_gradient(high = '#0000AA',
 
 # configurações de tema e legenda
 plot_config <-
-  theme_minimal() +
-  theme(text = element_text(size = txt_size),
-        legend.position = "bottom",
-        legend.direction = "horizontal")
+  # Tema
+  theme_minimal(base_family = "roboto") +
+  theme(
+    plot.title = element_markdown(family = "title_font",
+                                  size = 18,
+                                  face = "bold",
+                                  color = pal_primaria[1],
+                                  hjust = 0),
+    plot.subtitle = element_text(size = txt_size, color = "grey40", margin = margin(b = 25)),
+    plot.caption = element_text(size = txt_size, color = "grey60", margin = margin(t = 20)),
+    legend.position = "bottom",
+    legend.title = element_text(size = txt_size,face = "bold"),
+    legend.text = element_text(size = txt_size),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title = element_text(size = txt_size),
+    axis.text = element_text(size = txt_size, color = "#555555"),
+    strip.text.x.top = element_text(color = "#0000aa",
+                                    size = txt_size)
+  )
 
 # 'NOVO' ggplot para escala de cores categóricas
 ggplot_cat <- function(...){

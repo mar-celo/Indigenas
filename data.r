@@ -223,8 +223,170 @@ df_orgao <- df_serv %>%
 saveRDS(df_natjur,'data/df_natjur.rds')
 saveRDS(df_orgao,'data/df_orgao.rds')
 
+
 # ==============================================================================
-# 9. fechando conexão
+# 9. Por etnia, efetivos, função, etc ------
+# ==============================================================================
+
+## total de efetivos
+df_efetivos <-
+  df_serv %>%
+  group_by(ano,
+           mes,
+           nome_cor_origem_etnica,
+           nome_sexo,
+           nome_cargo_origem,
+           nome_cargo) %>%
+  summarise(total = sum(qtd)) %>%
+  collect %>%
+  mutate(efetivo = !(grepl("s/(cargo|info)",nome_cargo,ignore.case = T) &
+                       grepl("s/(cargo|info)",nome_cargo_origem,ignore.case = T)
+                     )
+         ) %>%
+  group_by(mes,nome_cor_origem_etnica,
+           nome_sexo,
+           efetivo) %>%
+  summarise(total = sum(total)) %>%
+  setDT
+
+
+## total por função e etnia
+df_funcao <-
+  df_spark %>%
+  group_by(mes,
+           nome_cor_origem_etnica,
+           nome_sexo,
+           nome_funcao,
+           nome_nivel_funcao) %>%
+  summarise(total = sum(qtde_vinculos)) %>%
+  collect %>%
+  setDT
+
+
+# mexendo nos níveis
+df_funcao <-
+  df_funcao %>%
+  # filter(mes == 202602 & nome_funcao %in% c("CCX","FEX")) %>% #View
+  mutate(
+    decreto_nivel = gsub("(CCX|FEX)-[0-9]{2}","",nome_nivel_funcao) %>%
+      as.numeric
+  ) %>%
+  mutate(intervalo_nivel = cut(decreto_nivel,
+                               breaks = c(1,5,7,10,13,15,19),
+                               include.lowest= T,
+                               right= F,
+                               ordered_result = T
+                               )) %>%
+  setDT %>% #View
+  .[,`:=`(label_intervalo =
+            paste0(
+              min(decreto_nivel,na.rm = T),
+              ifelse(n_distinct(decreto_nivel,na.rm = T) == 1,
+                     "",
+                     ifelse(n_distinct(decreto_nivel,na.rm = T) == 2,
+                            " e ",
+                            " a ") %>% paste0(.,
+                                              max(decreto_nivel,na.rm = T)
+                                              )
+                     )
+              ) %>%
+            paste0("Nível ",.)
+          ),
+    .(intervalo_nivel)]
+
+df_funcao[is.na(intervalo_nivel),
+          `:=`(label_intervalo = "S/função FCE/CCE")]
+
+ord_levels <- df_funcao[,.(intervalo_nivel,label_intervalo)] %>%
+  unique %>%
+  setorder(intervalo_nivel) %>%
+  .$label_intervalo %>%
+  as.character()
+
+## juntando níveis e totais
+df_funcao_total <-
+  df_efetivos[,.(total = sum(total)),
+              .(mes,
+                etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+                               "Indígenas",
+                               "Demais Raça/cor"),
+                nome_sexo)] %>%
+  left_join(
+    df_funcao[!is.na(intervalo_nivel),
+              .(total_funcao = sum(total)),
+              .(mes,
+                etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+                               "Indígenas",
+                               "Demais Raça/cor"),
+                nome_sexo,
+                label_intervalo
+                # intervalo_nivel
+                )] %>%
+      dcast(mes + etnia + nome_sexo ~ label_intervalo,value = "total_funcao",fill = 0)
+  ) %>%
+  melt(id.vars = c("mes","etnia","nome_sexo","total"),
+       variable.name = "nivel",
+       value.name = "total_funcao",
+       na.rm = F) %>%
+  .[,`:=`(nivel_sexo = factor(nome_sexo,levels = c('Mas','Fem'),ordered = T),
+          nivel_ord =  factor(nivel,levels = ord_levels,ordered = T),
+          total_funcao = ifelse(is.na(total_funcao),0,total_funcao))] %>%
+  .[,total_funcao_adj := ifelse(nome_sexo == "Fem",-total_funcao,total_funcao)] %>%
+  .[,p_sexo := round(100*total_funcao_adj/sum(total_funcao),1),
+    .(mes,etnia,nivel)]
+
+
+
+
+
+## juntando efetivos
+df_funcao_efetivos <-
+  df_efetivos[(efetivo),.(total = sum(total)),
+              .(mes,
+                etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+                               "Indígenas",
+                               "Demais Raça/cor"),
+                nome_sexo)] %>%
+  .[,p_total := 100*total/sum(total),
+    .(mes,nome_sexo)] %>%
+  left_join(
+    df_funcao[nome_funcao %in% "FEX",
+              .(total_funcao = sum(total)),
+              .(mes,
+                etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
+                               "Indígenas",
+                               "Demais Raça/cor"),
+                nome_sexo,
+                label_intervalo
+                # intervalo_nivel
+              )] %>%
+      dcast(mes + etnia + nome_sexo ~ label_intervalo,value = "total_funcao",fill = 0)
+  ) %>%
+  melt(id.vars = c("mes","etnia","nome_sexo","total","p_total"),
+       variable.name = "nivel",
+       value.name = "total_funcao",
+       na.rm = F) %>%
+  .[,`:=`(nivel_sexo = factor(nome_sexo,levels = c('Mas','Fem'),ordered = T),
+          nivel_ord =  factor(nivel,levels = ord_levels,ordered = T),
+          total_funcao = ifelse(is.na(total_funcao),0,total_funcao))] %>%
+  .[,total_funcao_adj := ifelse(nome_sexo == "Fem",-total_funcao,total_funcao)] %>%
+  .[,p_sexo := round(100*total_funcao_adj/sum(total_funcao),1),
+    .(mes,etnia,nivel)] %>%
+  .[,p_etnia := 100*total_funcao/sum(total_funcao),.(mes,nome_sexo,nivel)] %>%
+  filter(etnia == "Indígenas")
+
+
+
+
+
+saveRDS(df_efetivos,'data/df_efetivos.rds')
+saveRDS(df_funcao,'data/df_funcao.rds')
+saveRDS(df_funcao_total,'data/df_funcao_total.rds')
+saveRDS(df_funcao_efetivos,"data/df_funcao_efetivos.rds")
+
+
+# ==============================================================================
+# 10. fechando conexão
 # ==============================================================================
 
 spark_disconnect(sc)
