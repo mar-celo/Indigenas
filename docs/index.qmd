@@ -1,7 +1,7 @@
 ---
-title: "Perfil Étnico no Serviço Público Federal"
-subtitle: "Análise da representatividade Indígena (2018-2026)"
-author: "Marcelo Ribeiro"
+title: "Indígenas na Administração Pública Federal"
+subtitle: "Análise da representatividade Indígena (2016-2026)"
+author: "CGINF/DIGID/SGP/MGI"
 format:
   html:
     code-fold: true
@@ -9,6 +9,8 @@ format:
     fig-width: 10
     fig-height: 7
     self-contained: true
+    css: styles-2.css
+    toc: true
 ---
 
 ```{r setup, message=FALSE, warning=FALSE,echo = F}
