@@ -15,7 +15,7 @@ format:
 # ==============================================================================
 # 1. CONFIGURAÇÕES INICIAIS E BIBLIOTECAS
 # ==============================================================================
-library(arrow)
+library(arrow) a 
 library(dplyr)
 library(ggplot2)
 library(lubridate)
