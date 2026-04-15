@@ -42,9 +42,9 @@ library(DT)
 library(crosstalk)
 
 # Configuração de fontes para estética TidyTuesday
-font_add_google("Roboto Condensed", "roboto")
-font_add_google("Outfit", "title_font")
-showtext_auto()
+# font_add_google("Roboto Condensed", "roboto")
+# font_add_google("Outfit", "title_font")
+# showtext_auto()
 
 
 # configuração de paletas e dimensões
