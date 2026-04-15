@@ -11,7 +11,7 @@
   --fundo-suave: #F0F0FF;
   
   /* Padronização de escala */
-  --font-base-size: 1rem;  
+  --font-base-size: 1.9rem;  
   --line-height-base: 1.6;
 }
 
@@ -29,6 +29,90 @@ body {
   /* Bloqueio de hifenização global */
   hyphens: none;
   -webkit-hyphens: none;
+}
+
+/* --- TOC --- */
+#TOC {
+  border: 1px solid var(--cinza-claro);
+  background-color: #ffffff;
+  border-radius: 5px;
+  padding: 2rem;
+  margin-bottom: 30px;
+}
+
+/* --- TÍTULO DA TOC --- */
+#TOC #header, 
+#TOC h2, 
+.toc-title {
+  color: var(--azul-odp) !important;
+  font-family: 'Albert Sans', sans-serif !important;
+  text-transform: uppercase !important;
+  border-bottom: none !important;
+  font-size: 2rem !important;
+  margin-bottom: 1rem !important;
+  padding-left: 1.5rem !important; /* Alinhado com o recuo da lista */
+}
+
+/* --- CORPO DA TOC (A LISTA) --- */
+#TOC ul {
+  color: var(--cinza-texto) !important;
+  list-style: none !important; /* Marcador faz parte da linha de texto */
+  padding-left: 1.5rem !important;
+  margin-left: 0 !important;
+  line-height: 1.5rem !important;
+}
+
+#TOC li {
+  padding: 5px 0 !important;
+  text-indent: 0 !important;
+  transition: all 0.2s ease-in-out; /* Suaviza o movimento do marcador */ 
+  padding-left: 1.5rem !important; 
+  position: relative;
+}
+
+#TOC li::before {
+  content: "•";
+  color: var(--azul-odp);
+  position: absolute;
+  left: 0;
+  font-weight: bold;
+}
+
+/* NÍVEIS DA LISTA */
+#TOC ul ul {
+  margin-top: 0.5rem !important;
+  padding-left: 1.2rem !important; /* Recuo extra para o sub-nível */
+}
+
+#TOC ul ul li {
+  font-size: 1rem !important; /* Diminui levemente o texto do sub-item */
+  font-weight: normal !important;
+  color: var(--cinza-texto) !important;
+}
+
+#TOC ul ul li::before {
+  content: "◦"; /* Marcador diferente para o nível 2 */
+}
+
+#TOC a {
+  color: var(--cinza-texto) !important;
+  font-family: 'Rawline', sans-serif !important;
+  font-size: 1.5rem !important;
+  text-decoration: none !important;
+  transition: all 0.2s ease-in-out;
+  display: inline; /* Necessário para que o padding/margin lateral funcione bem */
+}
+
+/* --- HOVER --- */
+#TOC li:hover {
+  padding-left: 0.5rem !important; /* Move o LI inteiro (incluindo a bolinha) */
+  color: var(--azul-odp) !important; /* Muda a cor da "bolinha" do list-style */
+}
+
+#TOC li:hover a {
+  color: var(--azul-odp) !important;
+  font-weight: 600 !important;
+  text-decoration: underline !important;
 }
 
 /* --- 4. TÍTULOS --- */
@@ -93,6 +177,7 @@ table {
 thead th {
   background-color: var(--azul-odp);
   color: #ffffff;
+  font-size: 1.2rem;
   padding: 0.75rem;
   text-align: left;
   text-transform: uppercase;
@@ -101,6 +186,7 @@ thead th {
 
 tbody td {
   padding: 0.625rem;
+  font-size: 1.2rem;
   border-bottom: 0.063rem solid var(--cinza-claro);
 }
 

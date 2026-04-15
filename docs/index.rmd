@@ -6,10 +6,9 @@ output:
   html_document:
     code-fold: true
     toc: true
-    css: styles-2.css
+    # css: styles-2.css
+    css: css_gabriel.css
     # theme: minimal
-    fig-width: 10
-    fig-height: 7
     self-contained: true
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---

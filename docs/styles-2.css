@@ -12,7 +12,7 @@
   --fundo-suave: #F0F0FF;
   
   /* Padronização de escala */
-  --font-base-size: 1.4rem;  
+  --font-base-size: 2.2rem;  
   --line-height-base: 1.6;
 }
 
@@ -199,7 +199,7 @@ p {
 
 /* --- 6. ELEMENTOS GRÁFICOS --- */
 table {
-  display: block !important;       /* Força a tabela a se comportar como um bloco isolado (quebra a linha) */
+  /*display: block !important;       /* Força a tabela a se comportar como um bloco isolado (quebra a linha) */
   width: 100% !important;          /* Garante que ocupe a página toda */
   max-width: 100% !important;
   overflow-x: auto !important;     /* CRIA O SCROLL HORIZONTAL */

@@ -3,8 +3,8 @@ library(ggplot2)
 
 
 ### opções de tamanhos das figuras
-fw <- 15
-fh <- 15
+fw <- 9
+fh <- 6
 
 ### opções de chunk
 knitr::opts_chunk$set(list(warning = FALSE,
@@ -20,7 +20,7 @@ knitr::opts_chunk$set(list(warning = FALSE,
 
 
 ### opções de tamanhos de texto dos itens (eixo, legendas, etc)
-txt_size <- 15
+txt_size <- 6
 
 ### opção de tamanho de texto no label (geom_text)
 txt_geom_size <- 5
