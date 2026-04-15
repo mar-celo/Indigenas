@@ -1,15 +1,14 @@
 ---
-title: "Indígenas na Administração Pública Federal"
-subtitle: "Análise da representatividade Indígena (2016-2026)"
+title: "Análise da representatividade Indígena na Administração Pública Federal"
+# subtitle: "Análise da representatividade Indígena (2016-2026)"
 author: "CGINF/DIGID/SGP/MGI"
 output:
   html_document:
-    code-fold: true
-    toc: true
-    # css: styles-2.css
-    css: css_gabriel.css
-    # theme: minimal
+    theme: default
+    css: styles-2.css
+    # css: css_gabriel.css
     self-contained: true
+    toc: true
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
@@ -21,6 +20,7 @@ library(arrow)
 library(data.table)
 library(dplyr)
 library(ggplot2)
+library(stringr)
 library(lubridate)
 library(forcats)
 library(ggtext)
@@ -49,6 +49,7 @@ showtext_auto()
 
 # configuração de paletas e dimensões
 source('../setup_rmd.R')
+source('../metodos.r')
 
 
 ggplotly_c <- function(gg_obj){
@@ -72,15 +73,40 @@ ggplotly_c <- function(gg_obj){
 
 ```
 
+<!-- <style type="text/css"> -->
 
-## Introdução
-Este relatório apresenta uma análise da evolução histórica da composição étnica dos Vínculos públicos federais, com um foco especial na trajetória da representatividade indígena. Os dados são processados diretamente do ambiente Databricks (MGI-BRONZE) via Spark, permitindo a manipulação de grandes volumes de dados de forma eficiente e segura.
+<!-- .main-container { -->
+
+<!--   max-width: 90%; -->
+
+<!--   margin-left: auto; -->
+
+<!--   margin-right: auto; -->
+
+<!-- } -->
+
+<!-- strong { -->
+<!--     font-weight: 700; -->
+<!--     color: #0c326f; -->
+
+<!-- } -->
+
+<!-- label { -->
+<!--     display: inline-block; -->
+<!--     max-width: 100%; -->
+<!--     margin-bottom: 5px; -->
+<!--     font-weight: 700; -->
+<!--     color: #0c326f; -->
+<!-- } -->
+
+<!-- element.style { -->
+<!--     width: 242.639px; -->
+<!--     color: #0c326f; -->
+<!-- } -->
+
+<!-- </style> -->
 
 
-```{r databricks, message=FALSE, warning=FALSE}
-
-
-```
 
 
 ```{r configDT}
@@ -112,9 +138,7 @@ configuracao <- list(
 )
 ```
 
-## Análise da Representatividade
 
-Nesta seção, realizamos o processamento dos dados brutos para identificar a trajetória das diferentes autodeclarações étnicas. Para garantir a precisão do destaque visual (highlight), aplicamos uma limpeza nas strings para neutralizar espaços extras ou variações de acentuação (como "INDIGENA" vs "INDÍGENA"), garantindo que a categoria de interesse seja corretamente mapeada.
 
 ```{r wrangling, message=FALSE, warning=FALSE}
 df_etnia <- readRDS('../data/df_etnia.rds') %>% setDT
@@ -126,10 +150,8 @@ dt_max_siape <- df_etnia[,max(mes)]
 dt_max_show <- dt_range[2] %>% format("%B/%Y") %>% str_to_title()
 ```
 
-## Panorama Atual
 
-A tabela abaixo apresenta os números absolutos e a representatividade proporcional de cada grupo no último mês da série histórica. As barras visuais auxiliam na percepção imediata do peso de cada categoria no funcionalismo público.
-
+# Análise da Representatividade
 
 
 ```{r tabela2}
@@ -142,6 +164,9 @@ dados_tabela <- df_etnia %>%
   select(nome_cor_origem_etnica, n, pct) %>%
   arrange(desc(pct))
 ```
+
+
+Em `r dt_max_show`, a Administração Pública Federal (APF) contava com um total de `r dados_tabela[nome_cor_origem_etnica == 'INDIGENA',n %>% formatar_num(0)]` vínculos ativos de pessoas que se autodeclaram como indígenas, o que representa `r dados_tabela[nome_cor_origem_etnica == 'INDIGENA',formatar_num(100*pct,2)]`% do total de ativos, conforme representado na Tabela a seguir.
 
 ```{r react}
 reactable(
@@ -203,12 +228,22 @@ reactable(
 )
 ```
 
-## Evolução da Representatividade no Tempo
+```{r tab_serie_historica}
+df_indigena_mes <- 
+  df_etnia %>% 
+  filter(is_indigena == "Sim") %>%
+  mutate(data = year(data),pct = round(100*pct,2))
 
-O gráfico abaixo apresenta a trajetória histórica de todas as categorias de cor/raça. Utilizamos o mapeamento de cores para diferenciar os grupos, aplicando uma espessura maior e uma cor vibrante à categoria **Indígena** para facilitar o contraste visual em relação às demais séries.
+menor_rep <- df_indigena_mes[which.min(pct)]
+maior_rep <- df_indigena_mes[which.max(pct)]
+```
+Desde `r year(dt_range[1])`, a representatividade de indígnas na APF alcançou seu ponto mais baixo em `r menor_rep[,data]`, com `r menor_rep[,n] %>% formatar_num(0)` vínculos (`r menor_rep[,pct] %>% formatar_num(2)`% do total), sendo que o pico foi observado em  `r maior_rep[,data]`, com `r maior_rep[,n] %>% formatar_num(0)` vínculos (`r maior_rep[,pct] %>% formatar_num(2)`%).
+
+Entre 2021 e 2022, é possível notar um aumento no total absoluto acompanhado de uma queda no percentual, o que pode ser explicado por um aumento no número total de vínculos mais acelerado para as outras categorias de cor ou origem étnica.
 
 
-```{r grafico_serie_historica, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+
+```{r grafico_serie_historica}
 # ==============================================================================
 # 5. GRÁFICO DE SÉRIE HISTÓRICA (Foco em Indígena com Legenda)
 # ==============================================================================
@@ -230,11 +265,6 @@ label_final <- df_etnia %>%
   filter(data == max(data))%>%
              mutate(data = year(data),pct = round(100*pct,2))
 
-
-df_indigena_mes <- 
-  df_etnia %>% 
-  filter(is_indigena == "Sim") %>%
-  mutate(data = year(data),pct = round(100*pct,2))
 
 codf <- df_indigena_mes[mes == dt_max_siape, max(n)/max(pct)]
 
@@ -291,7 +321,580 @@ ggplot_cat(df_indigena_mes,
 ggplotly_c(serie_indigenas)
 ```
 
-## Vínculos efetivos
+
+
+```{r uf}
+
+df_etnias_uf <- readRDS('../data/df_indigenas_uf.rds') %>% setDT
+df_etnias_uf[,pct_indigenas := round(100*total_indigenas/sum(total_indigenas),2),.(uf)]
+df_indigenas_uf <- df_etnias_uf[nome_cor_origem_etnica %>% grepl("ind.gena",.,ignore.case = T)]
+
+
+df_indigenas_3 <- df_indigenas_uf %>% setorder(-pct_indigenas) %>% head(3)
+
+``` 
+
+
+As unidades de federação com maior presença de indígenas nos órgãos da APF são `r df_indigenas_3[,lista_e(uf," e ")]`. Em cada uma destas UF, `r df_indigenas_3[,lista_e(paste0(pct_indigenas,"%")," e ")]` dos vínculos, respectivamente, são exercidos por pessas desta etnia.
+
+
+
+```{r plot_uf}
+# Preparando o gráfico
+df_indigenas_uf %>%
+  mutate(uf = fct_reorder(uf, pct_indigenas)) %>%
+  ggplot_cont(aes(x = pct_indigenas, y = uf, fill = pct_indigenas)) +
+  geom_col(show.legend = FALSE) +
+  # Adicionando o número exato ao lado da barra
+  geom_text(aes(label = paste0(pct_indigenas,"%")),
+            position = position_nudge(x = 0.1),
+            hjust = -0.2, 
+            face = "bold",
+            col = "#FF7800",
+            family = "roboto", 
+            size = 3.5,
+            show.legend = F) +
+  labs(
+    title = "Representatividade de Vínculos Indígenas nas UFs",
+    subtitle = "Total de Vínculos ativos (Fev/2026)",
+    x = "Percentual",
+    y = NULL
+  ) + #-> plot_uf
+  theme_minimal(base_family = "roboto") +
+  theme( 
+    plot.title = element_markdown(family = "title_font",
+                                  size = 26, 
+                                  face = "bold",
+                                  color = pal_primaria[1],
+                                  hjust = 0),
+    plot.subtitle = element_text(size = 15, color = "grey40", margin = margin(b = 25)),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.text.y = element_text(size = 10,face = "bold"),
+    axis.text = element_text(size = 10, color = "grey30")#,
+    # plot.margin = margin(20, 30, 20, 20) 
+  ) -> plot_uf
+
+ggplotly_c(plot_uf)
+```
+
+
+
+```{r represent_orgao}
+df_orgao <- readRDS('../data/df_orgao.rds') %>% setDT
+
+
+## percentuais de indígenas por órgão
+df_orgao[,`:=`(
+  total_orgao = sum(total),
+  pct_indigena = round(100*total/sum(total),2)),
+  .(orgao_vinc)] %>%
+  filter(nome_cor_origem_etnica == "INDIGENA") %>%
+  setorder(-pct_indigena) %>%
+  select(nome_orgao_vinc,no_orgao,total_orgao,total,pct_indigena) -> df_orgao_ind
+
+
+df_orgao3 <- head(df_orgao_ind,5)
+```
+
+
+Ao analisar a presença de indígenas por órgão, a tabela a seguir aponta  `r df_orgao3[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")") %>% lista_e(" e ")]` como aqueles em que há maior presença de indígenas com relação ao total de vínculos, cerca de `r df_orgao3[,lista_e(paste0(pct_indigena,"%")," e ")]`, repectivamente. Juntos, estes órgãos contam com `r df_orgao3[,sum(total_orgao)] %>% formatar_num(0)` vínculos, sendo que `r df_orgao3[,100*sum(total)/sum(total_orgao)] %>% formatar_num(1)`% são de pessoas indígenas. Por outro lado, estes mesmo órgãos concentram `r formatar_num(100*df_orgao3[,sum(total)]/df_orgao_ind[,sum(total)],1)`% dos vínculos ativos de indígenas.
+
+```{r dt_indigena_orgao}
+dom_pct_ind <- df_orgao_ind$pct_indigena
+col_pct <- col_numeric(palette = c("white",pal_primaria['principal']),
+                       domain =dom_pct_ind )
+
+
+
+dt2 <- df_orgao_ind %>%
+  copy %>%
+  setnames(c("Órgão vinculado",
+           "Sigla do Órgão",
+           "Total de vínculos",
+           "Total de vínculos de indígenas",
+           "Participação (%) de indígenas no órgão")) %>%
+  DT::datatable(#filter = "top",
+                #style = "bootstrap",
+                class = "compact",
+                width = "100%",
+                extensions = 'Buttons',
+                options = configuracao,
+                caption = 
+                  tags$caption(
+                    style = 
+                    "caption-side: top;
+                    text-align: left;
+                    font-size: 24px;
+                    color: #0000AA;",
+                    "Por órgão vinculado"
+                    )
+                ) %>%
+  formatStyle(
+    "Participação (%) de indígenas no órgão",
+    background = styleEqual(dom_pct_ind,col_pct(dom_pct_ind)),
+    backgroundSize = '98% 88%',
+    backgroundRepeat = 'no-repeat',
+    backgroundPosition = 'center'
+  ) 
+
+dt2
+```
+
+
+# Perfil dos vínculos ativos de indígenas
+
+
+## Sexo e faixa etária
+
+```{r tb_piramide_etaria}
+# 1. Agregação no Spark
+df_piramide <- readRDS('../data/df_piramide.rds')  %>% 
+  setDT %>%
+  filter(nome_faixa_etaria != "15 a 18 anos")
+
+df_piramide[,`:=`(init_idade =
+                    faixa_etaria %>%
+                    gsub(",.*","",.) %>%
+                    gsub("\\(","",.) %>%
+                    as.numeric(),
+                  fim_idade = 
+                    faixa_etaria %>%
+                    gsub(".*\\,","",.) %>%
+                    gsub("\\]","",.) %>%
+                    as.numeric()
+                  )
+            ]
+
+
+df_piramide_indigena <- readRDS('../data/df_piramide_indigena.rds') %>% 
+  setDT %>%
+  filter(nome_faixa_etaria != "15 a 18 anos")
+
+
+df_piramide_indigena[,`:=`(init_idade =
+                             faixa_etaria %>%
+                             gsub(",.*","",.) %>%
+                             gsub("\\(","",.) %>%
+                             as.numeric(),
+                           fim_idade = 
+                             faixa_etaria %>%
+                             gsub(".*\\,","",.) %>%
+                             gsub("\\]","",.) %>%
+                             as.numeric()
+                           )
+                     ]
+
+
+
+```
+
+
+O conjunto de vínculos ativos de indígenas é composto por `r df_piramide_indigena[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`% de mulheres. Considerando a APF como um todo, este percntual é de `r df_piramide[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`%
+
+
+Quanto à idade, `r df_piramide_indigena[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% dos indígenas da APF têm menos de 40 anos e `r df_piramide_indigena[,100*sum(total*(init_idade >= 60 ))/sum(total)] %>% formatar_num(2)`% estão acima dos 60. Estes percenutais em toda a APF são, respectivamente, `r df_piramide[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% e `r df_piramide[,100*sum(total*(init_idade >= 60 ))/sum(total)] %>% formatar_num(2)`%
+
+
+
+
+```{r piramide_etaria}
+# pirâmide Indígenas
+pir_indigena <- 
+  ggplot(df_piramide_indigena,
+         aes(x = reorder(nome_faixa_etaria, faixa_etaria),
+             y = total_ajustado, 
+             fill = nome_sexo))  +
+  geom_bar(stat = "identity", width = 0.8) +
+  coord_flip() +
+  scale_y_continuous(labels = function(x) format(abs(x),
+                                                 big.mark = ".", 
+                                                 decimal.mark = ",")) +
+  scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
+  labs(
+    title = "Vínculos Indígenas",
+    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
+    x = "Faixa Etária",
+    y = "Quantidade"
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    plot.title = element_text(face = "bold", 
+                              size = 18,
+                              color = "#0000aa",),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom"
+  )
+
+pir_indigena <- ggplotly(pir_indigena) %>%
+  plotly::layout(legend = list(x = 0.45,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+
+# Pirâmide federais
+pir_federais <- 
+  ggplot(df_piramide,
+         aes(x = reorder(nome_faixa_etaria, faixa_etaria),
+             y = total_ajustado, 
+             fill = nome_sexo))  +
+  geom_bar(stat = "identity", width = 0.8) +
+  coord_flip() +
+  scale_y_continuous(labels = function(x) format(abs(x),
+                                                 big.mark = ".", 
+                                                 decimal.mark = ",")) +
+  scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
+  labs(
+    title = "Total de Vínculos",
+    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
+    x = "Faixa Etária",
+    y = "Quantidade"
+  ) +
+  plot_config
+
+pir_federais <- ggplotly(pir_federais) %>%
+  plotly::layout(legend = list(x = 0.50,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+
+
+bscols(pir_federais,
+       pir_indigena,
+       widths = c(6,6),
+       device = "sm"
+       )
+
+```
+
+
+<!-- ## Perfil de Escolaridade: Vínculos Indígenas -->
+
+## Escolaridade
+
+```{r escol_indigena}
+# ==============================================================================
+# 1. PREPARAÇÃO DOS DADOS (Foco Exclusivo em Indígenas)
+# ==============================================================================
+
+
+df_treemap <- readRDS('../data/df_treemap_ind.rds') %>% setDT
+
+
+df_treemap_ind <- df_treemap[nome_cor_origem_etnica == "INDIGENA"]
+
+
+# reordenando cores de acordo com a frequencia da escolaridade
+setorder(df_treemap_ind,-total)
+pal_complementar.f <- pal_complementar[order(df_treemap_ind$nome_escolaridade.f)]
+``` 
+
+
+A figura a seguir apresenta a distribuição de vínculos que se autodeclaram indígenas segundo a escolaridade. Cerca de `r df_treemap_ind[nome_escolaridade.f >= 'Pós-Graduação',sum(total)] -> esc_i;formatar_num(esc_i,0)` indígenas, `r df_treemap_ind[,sum(total)] -> esc_t;formatar_num(100*esc_i/esc_t,1)`% do total, possuem pelo menos a pós-graduação. Considerando toda a APF, este percentual é de `r (df_treemap[nome_escolaridade.f >= 'Pós-Graduação',100*sum(total)]/sum(df_treemap$total)) %>% formatar_num(1)`.
+
+```{r treemap_indigena}
+# ==============================================================================
+# 2. GERAÇÃO DO TREEMAP
+# ==============================================================================
+ggplot(df_treemap_ind, aes(area = total, 
+                           fill = nome_escolaridade.f, 
+                           # subgroup = nome_escolaridade_completa, 
+                           label = nome_escolaridade.f
+                           )
+       ) +
+  
+  # Camada de retângulos
+  geom_treemap(color = "white",
+               size = 1.5
+               ) +
+  
+  # Bordas dos níveis de escolaridade
+  # geom_treemap_subgroup_border(color = "white", size = 2) +
+  
+  # Título do Nível de Escolaridade (Centro do Bloco)
+  # geom_treemap_subgroup_text(place = "centre", grow = TRUE, alpha = 0.15, 
+                             # color = "black", fontface = "bold") +
+  
+  # Sigla da Região (Dentro dos sub-blocos)
+  geom_treemap_text(color = "white", 
+                    place = "bottomright",
+                    reflow = TRUE, 
+                    size = 25, fontface = "bold") +
+  
+  # Paleta de cores (Verdes para remeter à temática indígena)
+  # scale_fill_viridis_d(option = "mako", direction = -1) + 
+  # plot_fill_cat + 
+  scale_fill_discrete(palette = pal_complementar.f) +
+  
+  labs(
+    title = "Distribuição de Escolaridade: Vínculos INDÍGENAS",
+    subtitle = paste0("Análise por Nível de Instrução e Região Política (",dt_max_show,")"),
+    # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
+    fill = "Escolaridade"
+  ) + 
+  plot_config -> treemap_escol
+
+ # +
+ #  theme_minimal(base_family = "roboto") +
+ #  theme(
+ #    text  = element_text(size = 20),
+ #    plot.title = element_text(size = 26,
+ #                              face = "bold",
+ #                              just = 0,
+ #                              halign = 0,
+ #                              color = "#0000aa"),
+ #    plot.subtitle = element_text(size = 22, color = "grey40"),
+ #    legend.position = "bottom"
+ #  )
+
+treemap_escol
+```
+
+
+# Órgão de vinculo
+
+<!-- ## Natureza jurídica do órgão -->
+
+
+```{r natjur}
+# ==============================================================================
+# 1. PREPARAÇÃO DOS DADOS (Agrupamento e Pivotagem)
+# ==============================================================================
+
+df_natjur <- readRDS('../data/df_natjur.rds') %>% setDT
+
+# apenas indígenas
+df_natjur_ind <- df_natjur[nome_cor_origem_etnica == "INDIGENA",pct := 100*total/sum(total),.(ano)]
+
+# maior natureza jurídica no ano corrente
+df_natjur[ano == year(dt_range[2])] %>% setorder(-pct) %>% head(1) -> max_natjur
+
+# histórico do maior vínculo jurídico
+df_natjur_ind_max <- df_natjur_ind[nome_natureza_juridica_cnnj %in% max_natjur$nome_natureza_juridica_cnnj]
+vale_natjur <- df_natjur_ind_max[which.min(pct)]
+pico_natjur <- df_natjur_ind_max[which.max(pct)]
+```
+
+
+Em `r dt_max_show`, a maior parte dos vínculos de indígenas, `r formatar_num(max_natjur$pct,1)`%, estavam em órgãos de `r max_natjur$nome_natureza_juridica_cnnj`. Essa categoria apresentou seu menor percentual em `r vale_natjur$ano`, com `r vale_natjur$pct %>% formatar_num(1)`% dos ingígenas, e seu valor máximo em `r pico_natjur$ano`, com `r pico_natjur$pct %>% formatar_num(1)`%.
+
+
+```{r grafico_echarts_natjur}
+df_grafico <- df_natjur[nome_cor_origem_etnica == 'INDIGENA',
+                        .(total = sum(total)),
+                        .(data = as.Date(paste0(ano,'0101'),"%Y%m%d"),
+                          nome_natureza_juridica_cnnj)
+                        ] %>% 
+  .[,pct_soma := round(total/sum(total),5),.(data)] %>% 
+  select(-total) %>%
+  # Transformar para formato largo (wider)
+  pivot_wider(names_from = nome_natureza_juridica_cnnj, values_from = pct_soma) %>%
+  mutate(ano = year(data)) %>% 
+  arrange(data)
+
+# ==============================================================================
+# 2. CONSTRUÇÃO DO GRÁFICO INTERATIVO
+# ==============================================================================
+df_grafico %>%
+  e_charts(x = data) %>%
+  e_tooltip(
+    formatter = e_tooltip_item_formatter("percent", digits = 1)
+  ) %>%
+  e_y_axis(
+    name = "Percentual Natureza Jurídica",
+    formatter = e_axis_formatter("percent", digits = 1),
+    nameTextStyle = list(color = "#666666", fontWeight = "bold")
+  ) %>%
+  # Barras empilhadas (stack = "grp")
+  e_bar(`Autarquia Federal`, stack = "grp") %>%
+  e_bar(`Fundacao Federal`, stack = "grp") %>%
+  e_bar(`Poder Executivo Federal`, stack = "grp") %>%
+  # Customizações estéticas
+  e_datazoom(show = TRUE, toolbox = FALSE) %>%
+  # e_zoom(show = TRUE, toolbox = FALSE) %>%%>%
+  e_legend(right = 20, top = 'center',orient = 'vertical') %>%
+  e_title(text = "Natureza Jurídica do Órgão"
+          ) %>%
+  # Paleta de cores: Azul (Demais), Vermelho (Negros), Dourado (Indígenas)
+  e_theme_custom('{"color":["#0000AA","#FF7800", "#00A100"]}')
+```
+
+
+```{r grafico_natjur}
+df_grafico <- 
+  df_natjur[nome_cor_origem_etnica == 'INDIGENA',
+            .(total = sum(total)),
+            .(data = as.Date(paste0(ano,'0101'),"%Y%m%d"),
+              `Natureza Jurídica` = nome_natureza_juridica_cnnj)
+            ] %>% 
+  .[,`:=`(ano = year(data),
+          `Percentual` = round(100*total/sum(total),2)),
+    .(data)]
+
+ggplot_cat(df_grafico,
+           aes(x = ano,y = Percentual,fill = `Natureza Jurídica`)
+           ) + 
+  geom_col() + 
+  scale_x_continuous(breaks =
+                       seq(min(df_grafico$ano),
+                           max(df_grafico$ano))) + 
+  labs(y = "Percentual dentre os indígenas",
+       x = "Ano",
+       fill = "Natureza jurídica") -> natjur_plot
+
+ggplotly_c(natjur_plot)
+  
+```
+
+
+```{r share_indigenas}
+df_orgao_ind[,share_ind := round(100*total/sum(total),2)]
+
+
+setorder(df_orgao_ind,-share_ind)
+
+
+df_orgao3_share <- head(df_orgao_ind,4)
+```
+
+
+Ao analisar a distribuição de indígenas por órgão, a tabela a seguir aponta  `r df_orgao3_share[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")") %>% lista_e(" e ")]` como aqueles em que os vínculos de indígenas estão mais concentrados, responsável por `r formatar_num(df_orgao3_share[,sum(share_ind)],1)`% dos vínculos ativos de indígenas.
+
+```{r percentuais_orgao}
+## Distribuição de indígenas por órgão
+
+
+
+dom_share_ind <- df_orgao_ind$share_ind
+col_share <- col_numeric(palette = c("white",pal_primaria['principal']),
+                         domain = dom_share_ind )
+
+dt3 <- df_orgao_ind %>%
+  copy() %>% 
+  select(-pct_indigena) %>%
+  setnames(c("Órgão vinculado",
+             "Sigla do Órgão",
+             "Total de vínculos",
+             "Total de vínculos de indígenas",
+             "Percentual dos indígenas vinculados ao órgão")) %>%
+  DT::datatable(#filter = "top",
+                #style = "bootstrap",
+                class = "compact",
+                width = "100%",
+                extensions = 'Buttons',
+                options = configuracao,
+                caption = 
+                  tags$caption(
+                    style = 
+                    "caption-side: top;
+                    text-align: left;
+                    font-size: 24px;
+                    color: #0000AA;",
+                    "Por órgão vinculado"
+                    )
+                ) %>%
+  formatStyle(
+    "Percentual dos indígenas vinculados ao órgão",
+    background = styleEqual(dom_share_ind,col_share(dom_share_ind)),
+    backgroundSize = '98% 88%',
+    backgroundRepeat = 'no-repeat',
+    backgroundPosition = 'center'
+  ) 
+
+dt3
+```
+
+
+```{r ntjur_orgao}
+# bscols(ggplotly(natjur_plot),
+#        dt2,
+#        widths = c(6,6),
+#        devise = 'sm')
+```
+
+
+```{r mapa, echo=FALSE, message=FALSE, warning=FALSE}
+# ==============================================================================
+# 2. PROCESSAMENTO NO DATABRICKS (SPARK)
+# ==============================================================================
+
+
+# ==============================================================================
+# 3. PADRONIZAÇÃO E JOIN (Uso do munifacil)
+# ==============================================================================
+
+
+# Carregamento da malha via geobr
+mapa_br <- geobr::read_state(year = 2020, showProgress = FALSE)
+
+# Join Final
+df_mapa_final <- mapa_br %>%
+  left_join(df_indigenas_uf, by = c("abbrev_state" = "uf")) %>%
+  mutate(total_indigenas = coalesce(total_indigenas, 0))
+
+setorder(df_mapa_final,-total_indigenas)
+
+df_mapa_h3 <- head(df_mapa_final,3) %>% setDT
+
+```
+
+Com relação à UF de vínculo, os Estados que mais concentram vínculos indígenas são `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
+
+
+```{r show_mapa}
+# ==============================================================================
+# 4. GERAÇÃO DO MAPA COM GGPLOT2
+# ==============================================================================
+
+ggplot(data = df_mapa_final) +
+  # Desenha os polígonos dos estados
+  geom_sf(aes(fill = total_indigenas), color = "white", size = 0.55) +
+  
+  plot_fill_cont + 
+  
+  # Adiciona os números em cada UF (Rótulos)
+  geom_sf_text(aes(label = ifelse(total_indigenas > 0, total_indigenas, "")), 
+               color = "#FF7800",
+               size = 3.8, 
+               family = "roboto",
+               fontface = "bold",
+               check_overlap = TRUE) +
+  
+  # Títulos e Identidade Visual
+  labs(
+    title = "Concentração de Vínculos Indígenas por UF",
+    subtitle = paste0("Base de dados: ",dt_max_show),
+    # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Malhas: geobr (IBGE) | Processamento: R/Spark",
+    x = NULL,
+    y = NULL,
+    fill = "Total de Vínculos indígenas"
+  ) +
+  # Tema minimalista para mapas
+  theme_void(base_family = "roboto") +
+  theme(
+    text = element_text(size = 15),
+    plot.title = element_markdown(family = "title_font",
+                                  size = 26,
+                                  face = "bold",
+                                  color = "#0000aa",
+                                  hjust = 0),
+    plot.subtitle = element_text( color = "grey40", margin = margin(b=20)),
+    legend.title = element_text(face = "bold"),
+    legend.position = "right"
+    )  -> mapa_indigenas
+ggplotly(mapa_indigenas)
+# mapa_indigenas
+```
+
+
+
+# Ingressos e liderança
+
+## Servidores efetivos
 
 ```{r efetivos}
 df_efetivos <- readRDS('../data/df_efetivos.RDS')
@@ -385,7 +988,9 @@ ggplotly_c(efetivos_mes_etnia)%>%
 ```
 
 
-## Vínculos com função/liderança
+
+
+## Funções e lideranças
 
 
 ```{r funcao}
@@ -589,436 +1194,5 @@ ggplotly_c(serie_razao)
 
 
 
-```
-
-
-## Natureza jurídica e órgãos
-
-Este gráfico utiliza a biblioteca **Echarts4r** para criar uma visualização interativa e empilhada da composição étnica, agrupando os dados em três grandes categorias para facilitar a análise comparativa ao longo do tempo.
-
-```{r grafico_echarts, echo=FALSE, message=FALSE, warning=FALSE}
-# ==============================================================================
-# 1. PREPARAÇÃO DOS DADOS (Agrupamento e Pivotagem)
-# ==============================================================================
-
-df_natjur <- readRDS('../data/df_natjur.rds') %>% setDT
-
-df_grafico <- df_natjur[nome_cor_origem_etnica == 'INDIGENA',
-                        .(total = sum(total)),
-                        .(data = as.Date(paste0(ano,'0101'),"%Y%m%d"),
-                          nome_natureza_juridica_cnnj)
-                        ] %>% 
-  .[,pct_soma := round(total/sum(total),5),.(data)] %>% 
-  select(-total) %>%
-  # Transformar para formato largo (wider)
-  pivot_wider(names_from = nome_natureza_juridica_cnnj, values_from = pct_soma) %>%
-  mutate(ano = year(data)) %>% 
-  arrange(data)
-
-# ==============================================================================
-# 2. CONSTRUÇÃO DO GRÁFICO INTERATIVO
-# ==============================================================================
-df_grafico %>%
-  e_charts(x = data) %>%
-  e_tooltip(
-    formatter = e_tooltip_item_formatter("percent", digits = 1)
-  ) %>%
-  e_y_axis(
-    name = "Percentual Natureza Jurídica",
-    formatter = e_axis_formatter("percent", digits = 1),
-    nameTextStyle = list(color = "#666666", fontWeight = "bold")
-  ) %>%
-  # Barras empilhadas (stack = "grp")
-  e_bar(`Autarquia Federal`, stack = "grp") %>%
-  e_bar(`Fundacao Federal`, stack = "grp") %>%
-  e_bar(`Poder Executivo Federal`, stack = "grp") %>%
-  # Customizações estéticas
-  e_datazoom(show = TRUE, toolbox = FALSE) %>%
-  # e_zoom(show = TRUE, toolbox = FALSE) %>%%>%
-  e_legend(right = 20, top = 'center',orient = 'vertical') %>%
-  e_title(text = "Natureza Jurídica do Órgão"
-          ) %>%
-  # Paleta de cores: Azul (Demais), Vermelho (Negros), Dourado (Indígenas)
-  e_theme_custom('{"color":["#0000AA","#FF7800", "#00A100"]}')
-```
-
-## Perfil Étnico Agrupado (Echarts4r)
-
-Nesta visualização, as etnias são consolidadas em três grupos principais para destacar a evolução da representatividade. As barras foram alargadas para melhor leitura visual, e o eixo vertical foi limitado a 100% para evitar distorções de escala.
-
-```{r grafico_echarts_ajustado, echo=FALSE, message=FALSE, warning=FALSE}
-df_grafico <- 
-  df_natjur[nome_cor_origem_etnica == 'INDIGENA',
-            .(total = sum(total)),
-            .(data = as.Date(paste0(ano,'0101'),"%Y%m%d"),
-              `Natureza Jurídica` = nome_natureza_juridica_cnnj)
-            ] %>% 
-  .[,`:=`(ano = year(data),
-          `Percentual` = round(100*total/sum(total),2)),
-    .(data)]
-
-ggplot_cat(df_grafico,
-           aes(x = ano,y = Percentual,fill = `Natureza Jurídica`)
-           ) + 
-  geom_col() + 
-  scale_x_continuous(breaks =
-                       seq(min(df_grafico$ano),
-                           max(df_grafico$ano))) + 
-  labs(y = "Percentual dentre os indígenas",
-       x = "Ano",
-       fill = "Natureza jurídica") -> natjur_plot
-
-ggplotly_c(natjur_plot)
-  
-```
-
-
-```{r percentuais_orgao}
-df_orgao <- readRDS('../data/df_orgao.rds') %>% setDT
-
-
-## percentuais de indígenas por órgão
-df_orgao[,`:=`(
-  total_orgao = sum(total),
-  pct_indigena = round(100*total/sum(total),2)),
-  .(orgao_vinc)] %>%
-  filter(nome_cor_origem_etnica == "INDIGENA") %>%
-  setorder(-pct_indigena) %>%
-  select(nome_orgao_vinc,no_orgao,total_orgao,total,pct_indigena) -> df_orgao
-
-
-dom_pct_ind <- df_orgao$pct_indigena
-col_pct <- col_numeric(palette = c("white",pal_primaria['principal']),
-                       domain =dom_pct_ind )
-
-setnames(df_orgao,
-         c("Órgão vinculado",
-           "Sigla do Órgão",
-           "Total de vínculos",
-           "Total de vínculos de indígenas",
-           "Percentual indígenas no órgão"))
-
-
-dt2 <- df_orgao %>%
-  DT::datatable(#filter = "top",
-                #style = "bootstrap",
-                class = "compact",
-                width = "100%",
-                extensions = 'Buttons',
-                options = configuracao,
-                caption = 
-                  tags$caption(
-                    style = 
-                    "caption-side: top;
-                    text-align: left;
-                    font-size: 24px;
-                    color: #0000AA;",
-                    "Por órgão vinculado"
-                    )
-                ) %>%
-  formatStyle(
-    "Percentual indígenas no órgão",
-    background = styleEqual(dom_pct_ind,col_pct(dom_pct_ind)),
-    backgroundSize = '98% 88%',
-    backgroundRepeat = 'no-repeat',
-    backgroundPosition = 'center'
-  ) 
-
-dt2
-```
-
-
-```{r ntjur_orgao}
-# bscols(ggplotly(natjur_plot),
-#        dt2,
-#        widths = c(6,6),
-#        devise = 'sm')
-```
-
-
-```{r uf}
-
-df_etnias_uf <- readRDS('../data/df_indigenas_uf.rds') %>% setDT
-df_etnias_uf[,pct_indigenas := round(100*total_indigenas/sum(total_indigenas),2),.(uf)]
-df_indigenas_uf <- df_etnias_uf[nome_cor_origem_etnica %>% grepl("ind.gena",.,ignore.case = T)]
-
-# Filtrando apenas indígenas no último mês disponível (Fev 2026)
-# O processamento acontece no cluster, não no seu PC!
-# df_indigenas_uf <- readRDS('../data/df_indigenas_uf.rds')
-
-# Preparando o gráfico
-df_indigenas_uf %>%
-  mutate(uf = fct_reorder(uf, pct_indigenas)) %>%
-  ggplot_cont(aes(x = pct_indigenas, y = uf, fill = pct_indigenas)) +
-  geom_col(show.legend = FALSE) +
-  # Adicionando o número exato ao lado da barra
-  geom_text(aes(label = paste0(pct_indigenas,"%")),
-            position = position_nudge(x = 0.1),
-            hjust = -0.2, 
-            face = "bold",
-            col = "#FF7800",
-            family = "roboto", 
-            size = 3.5,
-            show.legend = F) +
-  labs(
-    title = "Percentual de Vínculos Indígenas nas UFs",
-    subtitle = "Total de Vínculos ativos (Fev/2026)",
-    x = "Percentual",
-    y = NULL
-  ) + #-> plot_uf
-  theme_minimal(base_family = "roboto") +
-  theme( 
-    plot.title = element_markdown(family = "title_font",
-                                  size = 26, 
-                                  face = "bold",
-                                  color = pal_primaria[1],
-                                  hjust = 0),
-    plot.subtitle = element_text(size = 15, color = "grey40", margin = margin(b = 25)),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_blank(),
-    axis.text.y = element_text(size = 10,face = "bold"),
-    axis.text = element_text(size = 10, color = "grey30")#,
-    # plot.margin = margin(20, 30, 20, 20) 
-  ) -> plot_uf
-
-ggplotly_c(plot_uf)
-```
-
-
-```{r mapa, echo=FALSE, message=FALSE, warning=FALSE}
-# ==============================================================================
-# 2. PROCESSAMENTO NO DATABRICKS (SPARK)
-# ==============================================================================
-
-
-# ==============================================================================
-# 3. PADRONIZAÇÃO E JOIN (Uso do munifacil)
-# ==============================================================================
-
-
-# Carregamento da malha via geobr
-mapa_br <- geobr::read_state(year = 2020, showProgress = FALSE)
-
-# Join Final
-df_mapa_final <- mapa_br %>%
-  left_join(df_indigenas_uf, by = c("abbrev_state" = "uf")) %>%
-  mutate(total_indigenas = coalesce(total_indigenas, 0))
-
-```
-
-```{r show_mapa}
-# ==============================================================================
-# 4. GERAÇÃO DO MAPA COM GGPLOT2
-# ==============================================================================
-
-ggplot(data = df_mapa_final) +
-  # Desenha os polígonos dos estados
-  geom_sf(aes(fill = total_indigenas), color = "white", size = 0.55) +
-  
-  plot_fill_cont + 
-  
-  # Adiciona os números em cada UF (Rótulos)
-  geom_sf_text(aes(label = ifelse(total_indigenas > 0, total_indigenas, "")), 
-               color = "#FF7800",
-               size = 3.8, 
-               family = "roboto",
-               fontface = "bold",
-               check_overlap = TRUE) +
-  
-  # Títulos e Identidade Visual
-  labs(
-    title = "Concentração de Vínculos Indígenas por UF",
-    subtitle = paste0("Base de dados: ",dt_max_show),
-    # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Malhas: geobr (IBGE) | Processamento: R/Spark",
-    x = NULL,
-    y = NULL,
-    fill = "Total de Vínculos indígenas"
-  ) +
-  # Tema minimalista para mapas
-  theme_void(base_family = "roboto") +
-  theme(
-    text = element_text(size = 15),
-    plot.title = element_markdown(family = "title_font",
-                                  size = 26,
-                                  face = "bold",
-                                  color = "#0000aa",
-                                  hjust = 0),
-    plot.subtitle = element_text( color = "grey40", margin = margin(b=20)),
-    legend.title = element_text(face = "bold"),
-    legend.position = "right"
-    )  -> mapa_indigenas
-ggplotly(mapa_indigenas)
-# mapa_indigenas
-```
-
-
-## Perfil Demográfico: Pirâmide Etária
-
-A pirâmide etária permite visualizar a distribuição dos Vínculos por sexo e idade. Este gráfico é essencial para o planejamento sucessório do órgão.
-
-```{r piramide_etaria, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
-# 1. Agregação no Spark
-df_piramide <- readRDS('../data/df_piramide.rds')  %>% 
-  setDT %>%
-  filter(nome_faixa_etaria != "15 a 18 anos")
-
-
-df_piramide_indigena <- readRDS('../data/df_piramide_indigena.rds') %>% 
-  setDT %>%
-  filter(nome_faixa_etaria != "15 a 18 anos")
-
-# pirâmide Indígenas
-pir_indigena <- 
-  ggplot(df_piramide_indigena,
-         aes(x = reorder(nome_faixa_etaria, faixa_etaria),
-             y = total_ajustado, 
-             fill = nome_sexo))  +
-  geom_bar(stat = "identity", width = 0.8) +
-  coord_flip() +
-  scale_y_continuous(labels = function(x) format(abs(x),
-                                                 big.mark = ".", 
-                                                 decimal.mark = ",")) +
-  scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
-  labs(
-    title = "Vínculos Indígenas",
-    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
-    x = "Faixa Etária",
-    y = "Quantidade"
-  ) +
-  theme_minimal(base_family = "roboto") +
-  theme(
-    plot.title = element_text(face = "bold", 
-                              size = 18,
-                              color = "#0000aa",),
-    panel.grid.minor = element_blank(),
-    legend.position = "bottom"
-  )
-
-pir_indigena <- ggplotly(pir_indigena) %>%
-  plotly::layout(legend = list(x = 0.45,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
-
-# Pirâmide federais
-pir_federais <- 
-  ggplot(df_piramide,
-         aes(x = reorder(nome_faixa_etaria, faixa_etaria),
-             y = total_ajustado, 
-             fill = nome_sexo))  +
-  geom_bar(stat = "identity", width = 0.8) +
-  coord_flip() +
-  scale_y_continuous(labels = function(x) format(abs(x),
-                                                 big.mark = ".", 
-                                                 decimal.mark = ",")) +
-  scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
-  labs(
-    title = "Total de Vínculos",
-    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
-    x = "Faixa Etária",
-    y = "Quantidade"
-  ) +
-  theme_minimal(base_family = "roboto") +
-  theme(
-    plot.title = element_text(face = "bold",
-                              color = "#0000aa",
-                              size = 18),
-    panel.grid.minor = element_blank(),
-    legend.position = "bottom"
-  ) 
-
-pir_federais <- ggplotly(pir_federais) %>%
-  plotly::layout(legend = list(x = 0.55,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
-
-
-bscols(pir_federais,
-       pir_indigena,
-       widths = c(6,6),
-       device = "sm"
-       )
-
-```
-
-
-## Perfil de Escolaridade: Vínculos Indígenas
-
-Este Treemap analisa exclusivamente o grupo de Vínculos que se autodeclaram **Indígenas**. Os grandes blocos representam o nível de instrução, enquanto as subdivisões mostram a distribuição por **Região do Brasil**.
-
-```{r treemap_indigena, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-# ==============================================================================
-# 1. PREPARAÇÃO DOS DADOS (Foco Exclusivo em Indígenas)
-# ==============================================================================
-
-
-df_treemap_ind <- readRDS('../data/df_treemap_ind.rds') %>% setDT
-
-
-# reordenando cores de acordo com a frequencia da escolaridade
-setorder(df_treemap_ind,-total)
-pal_complementar.f <- pal_complementar[order(df_treemap_ind$nome_escolaridade.f)]
-
-
-# ==============================================================================
-# 2. GERAÇÃO DO TREEMAP
-# ==============================================================================
-ggplot(df_treemap_ind, aes(area = total, 
-                           fill = nome_escolaridade.f, 
-                           # subgroup = nome_escolaridade_completa, 
-                           label = nome_escolaridade.f
-                           )
-       ) +
-  
-  # Camada de retângulos
-  geom_treemap(color = "white",
-               size = 1.5
-               ) +
-  
-  # Bordas dos níveis de escolaridade
-  # geom_treemap_subgroup_border(color = "white", size = 2) +
-  
-  # Título do Nível de Escolaridade (Centro do Bloco)
-  # geom_treemap_subgroup_text(place = "centre", grow = TRUE, alpha = 0.15, 
-                             # color = "black", fontface = "bold") +
-  
-  # Sigla da Região (Dentro dos sub-blocos)
-  geom_treemap_text(color = "white", 
-                    place = "bottomright",
-                    reflow = TRUE, 
-                    size = 25, fontface = "bold") +
-  
-  # Paleta de cores (Verdes para remeter à temática indígena)
-  # scale_fill_viridis_d(option = "mako", direction = -1) + 
-  # plot_fill_cat + 
-  scale_fill_discrete(palette = pal_complementar.f) +
-  
-  labs(
-    title = "Distribuição de Escolaridade: Vínculos INDÍGENAS",
-    subtitle = paste0("Análise por Nível de Instrução e Região Política (",dt_max_show,")"),
-    # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
-    fill = "Escolaridade"
-  ) + 
-  plot_config -> treemap_escol
-
- # +
- #  theme_minimal(base_family = "roboto") +
- #  theme(
- #    text  = element_text(size = 20),
- #    plot.title = element_text(size = 26,
- #                              face = "bold",
- #                              just = 0,
- #                              halign = 0,
- #                              color = "#0000aa"),
- #    plot.subtitle = element_text(size = 22, color = "grey40"),
- #    legend.position = "bottom"
- #  )
-
-treemap_escol
 ```
 

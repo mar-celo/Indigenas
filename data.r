@@ -164,13 +164,13 @@ saveRDS(df_piramide,'data/df_piramide.rds')
 saveRDS(df_piramide_indigena,'data/df_piramide_indigena.rds')
 
 # ==============================================================================
-# 7. dados Treemap
+# 7. dados Treemap ----
 # ==============================================================================
 
 
 df_escol <- df_serv %>%
-  filter(mes == 202602, nome_cor_origem_etnica == "INDIGENA") %>%
-  group_by(escolaridade,nome_escolaridade) %>%
+  filter(mes == 202602) %>%
+  group_by(escolaridade,nome_cor_origem_etnica,nome_escolaridade) %>%
   summarise(total = sum(qtd), .groups = "drop") %>%
   setDT
 
@@ -181,9 +181,10 @@ de_para_escol <- readxl::read_excel('data/escolaridades.xlsx') %>%
 
 
 df_treemap_ind <-
+  # filter(nome_cor_origem_etnica == "INDIGENA")
   df_escol %>%
   left_join(de_para_escol) %>%
-  group_by(nome_escolaridade_completa,ordem) %>%
+  group_by(nome_escolaridade_completa,nome_cor_origem_etnica,ordem) %>%
   summarise(total = sum(total), .groups = "drop") %>%
   setorder(ordem)
 
@@ -191,8 +192,9 @@ df_treemap_ind <-
 df_treemap_ind <-
   df_treemap_ind %>%
   mutate(nome_escolaridade.f = factor(nome_escolaridade_completa,
-                                      levels = nome_escolaridade_completa,
-                                      ordered = T))
+                                      levels = unique(nome_escolaridade_completa),
+                                      ordered = T)) %>%
+  setDT
 
 
 saveRDS(df_treemap_ind,'data/df_treemap_ind.rds')
@@ -236,15 +238,16 @@ df_efetivos <-
            nome_cor_origem_etnica,
            nome_sexo,
            nome_cargo_origem,
-           nome_cargo) %>%
+           nome_cargo,
+           nome_faixa_etaria) %>%
   summarise(total = sum(qtd)) %>%
   collect %>%
   mutate(efetivo = !(grepl("s/(cargo|info)",nome_cargo,ignore.case = T) &
                        grepl("s/(cargo|info)",nome_cargo_origem,ignore.case = T)
                      )
-         ) %>%
+         ) %>% #View
   group_by(mes,nome_cor_origem_etnica,
-           nome_sexo,
+           nome_sexo,nome_faixa_etaria,
            efetivo) %>%
   summarise(total = sum(total)) %>%
   setDT
