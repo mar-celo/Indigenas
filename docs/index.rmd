@@ -493,7 +493,7 @@ df_piramide_indigena[,`:=`(init_idade =
 O conjunto de vínculos ativos de indígenas é composto por `r df_piramide_indigena[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`% de mulheres. Considerando a APF como um todo, este percntual é de `r df_piramide[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`%
 
 
-Quanto à idade, `r df_piramide_indigena[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% dos indígenas da APF têm menos de 40 anos e `r df_piramide_indigena[,100*sum(total*(init_idade >= 60 ))/sum(total)] %>% formatar_num(2)`% estão acima dos 60. Estes percenutais em toda a APF são, respectivamente, `r df_piramide[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% e `r df_piramide[,100*sum(total*(init_idade >= 60 ))/sum(total)] %>% formatar_num(2)`%
+Quanto à idade, `r df_piramide_indigena[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% dos indígenas na APF têm até 40 anos e `r df_piramide_indigena[,100*sum(total*(init_idade >= 65 ))/sum(total)] %>% formatar_num(2)`% estão acima dos 65. Estes percenutais em toda a APF são, respectivamente, `r df_piramide[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% e `r df_piramide[,100*sum(total*(init_idade >= 65 ))/sum(total)] %>% formatar_num(2)`%
 
 
 
@@ -594,7 +594,7 @@ pal_complementar.f <- pal_complementar[order(df_treemap_ind$nome_escolaridade.f)
 ``` 
 
 
-A figura a seguir apresenta a distribuição de vínculos que se autodeclaram indígenas segundo a escolaridade. Cerca de `r df_treemap_ind[nome_escolaridade.f >= 'Pós-Graduação',sum(total)] -> esc_i;formatar_num(esc_i,0)` indígenas, `r df_treemap_ind[,sum(total)] -> esc_t;formatar_num(100*esc_i/esc_t,1)`% do total, possuem pelo menos a pós-graduação. Considerando toda a APF, este percentual é de `r (df_treemap[nome_escolaridade.f >= 'Pós-Graduação',100*sum(total)]/sum(df_treemap$total)) %>% formatar_num(1)`.
+A figura a seguir apresenta a distribuição de vínculos que se autodeclaram indígenas segundo a escolaridade. Cerca de `r df_treemap_ind[nome_escolaridade.f >= 'Pós-Graduação',sum(total)] -> esc_i;formatar_num(esc_i,0)` indígenas, `r df_treemap_ind[,sum(total)] -> esc_t;formatar_num(100*esc_i/esc_t,1)`% do total, possuem pelo menos a pós-graduação. Considerando toda a APF, este percentual é de `r (df_treemap[nome_escolaridade.f >= 'Pós-Graduação',100*sum(total)]/sum(df_treemap$total)) %>% formatar_num(1)`%.
 
 ```{r treemap_indigena}
 # ==============================================================================
@@ -817,7 +817,7 @@ dt3
 ```
 
 
-```{r mapa, echo=FALSE, message=FALSE, warning=FALSE}
+```{r mapa, eval = F}
 # ==============================================================================
 # 2. PROCESSAMENTO NO DATABRICKS (SPARK)
 # ==============================================================================
@@ -840,12 +840,14 @@ setorder(df_mapa_final,-total_indigenas)
 
 df_mapa_h3 <- head(df_mapa_final,3) %>% setDT
 
+# Com relação à UF de vínculo, os Estados que mais concentram vínculos indígenas são `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
+
 ```
 
-Com relação à UF de vínculo, os Estados que mais concentram vínculos indígenas são `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
 
 
-```{r show_mapa}
+
+```{r show_mapa, eval = F}
 # ==============================================================================
 # 4. GERAÇÃO DO MAPA COM GGPLOT2
 # ==============================================================================
@@ -892,16 +894,18 @@ ggplotly(mapa_indigenas)
 
 
 
-# Ingressos e liderança
+# Servidores efetivos
 
-## Servidores efetivos
+
 
 ```{r efetivos}
-df_efetivos <- readRDS('../data/df_efetivos.RDS')
+df_efetivos <- readRDS('../data/df_efetivos.RDS') %>% 
+  setDT %>%
+  .[,p := 100*total/sum(total)]
 
-## plot 1
-df_efetivos %>%
-  filter(mes == dt_max_siape)  %>%
+prop_efetivos_last <- 
+  df_efetivos %>%
+  filter(mes == dt_max_siape)  %>% 
   # .[,.(total = sum(total)),
   #   .(nome_sexo,
   #     efetivo,
@@ -909,13 +913,24 @@ df_efetivos %>%
   #                    "Indígenas",
   #                    "Demais raça/cor")
   #     )] %>%
-  .[,p := round(100*total/sum(total)),
+  .[,p := round(100*total/sum(total),1),
     .(nome_sexo,
       nome_cor_origem_etnica 
       )] %>%
   #sexo como fator ordenado
   .[,nome_sexo2 := factor(nome_sexo,levels = c("Mas","Fem"),ordered = T)] %>% 
-  filter(efetivo & nome_cor_origem_etnica != "NAO INFORMADO")%>%
+  filter(efetivo & nome_cor_origem_etnica != "NAO INFORMADO")
+
+
+
+```
+
+
+Em `r dt_max_show`, `r df_efetivos[nome_cor_origem_etnica == 'INDIGENA',round(100*sum(total*efetivo)/sum(total))]`% dos vínculos ativos de indígenas eram de servidores efetivos. Considerando todos os vínculos ativos da APF, este percentual era de  `r df_efetivos[,round(100*sum(total*efetivo)/sum(total))]`%. Entre os indígenas, os percentuais de efetivos paara mulheres e homens eram, respectivamente, `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Fem",p]`% e `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Mas",p]`%.
+
+```{r plot_efetivos}
+## plot 1
+prop_efetivos_last %>%
   ggplot_cat(aes(x = nome_cor_origem_etnica, #etnia,
                  y = p,
                  fill = nome_sexo2)) +
@@ -956,13 +971,125 @@ df_efetivos[,.(total = sum(total)),
                              "Indígenas",
                              "Demais raça/cor") ,
               efetivo)]  %>%
-  .[,p := round(100*total/sum(total)),
+  .[,p := round(100*total/sum(total),1),
     .(mes,
       # nome_sexo,
       etnia )] %>%
+  mutate(ano = substr(mes,1,4) %>% as.numeric) -> serie_efetivos
+
+#### frases para evoluções sobre efetivos
+
+## totais no início e fim
+serie_efetivos[,min(ano)] -> minano
+serie_efetivos[,max(ano)] -> maxano
+
+## ano maior queda
+serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
+  setorder(ano)  %>% 
+  .[,`:=`(diff_efetivo = total - lag(total),
+          anterior = lag(total),
+          panterior = lag(p))] %>% 
+  .[which.min(diff_efetivo),] -> anoqueda 
+
+## ano com maior valor
+serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
+  .[,`:=`(diff_efetivo = total - lag(total),
+          anterior = lag(total),
+          panterior = lag(p))] %>% 
+  .[which.min(total),] -> anomenor
+
+
+
+
+#### frases para NÃO efetivos
+
+## ano maior queda
+serie_efetivos[etnia == "Indígenas" & !efetivo,] %>% 
+  setorder(ano) %>% 
+  .[,`:=`(diff_efetivo = total - lag(total),
+          anterior = lag(total),
+          panterior = lag(p))] %>% 
+  .[which.max(diff_efetivo),] -> anosalto
+
+```
+
+Ao longo do período de `r serie_efetivos[,range(ano)] %>% lista_e(" a ")`, o total de vínculos efetivos de indígenas variou de forma considerável. A série começa em `r minano` com `r serie_efetivos[ano == minano & etnia == "Indígenas" & efetivo,formatar_num(total,0)]` indígenas efetivos, passa por uma queda abrupta de `r anoqueda$ano - 1` para `r anoqueda$ano`, chegando a `r anoqueda[,formatar_num(total,0)]`, passando pelo seu menor valor de `r anomenor[,formatar_num(total,0)]` em `r anomenor$ano`, finalizando em `r maxano` com `r serie_efetivos[ano == maxano & etnia == "Indígenas" & efetivo,formatar_num(total,0)]`. Por outro lado, houve um salto em `r anosalto$ano` no número de indígenas não efetivos de `r anosalto$anterior %>% formatar_num(0)` para `r anosalto$total %>% formatar_num(0) `. 
+
+
+```{r indigenas_compara_efet}
+
+serie_efetivos %>%
   # filter( nome_cor_origem_etnica == "INDIGENA")%>%
-  filter(efetivo) %>%
-  ggplot_cat(aes(x = mes,
+  filter(etnia == 'Indígenas') %>%
+  mutate(efetivo = ifelse(efetivo,'Efetivos','Não-efetivos')) %>%
+  ggplot_cat(aes(x = ano,
+                 y = total,
+                 # col = ifelse(efetivo,"Efetivos","Não-efetivos")
+                 col = efetivo
+                 )
+             ) +
+  geom_line(size = 1.3) +
+  geom_point(size = 2)  +
+  # facet_wrap(~nome_sexo) +
+  labs(title = paste0("Vínculos de indígenas por mês, efetivos X não efetivos",
+                      dt_max_show),
+       y = "Total de Vínculos",
+       x = NULL,
+       col = NULL) -> efetivos_mes_indigenas
+
+ggplotly_c(efetivos_mes_indigenas)%>%
+  plotly::layout(legend = list(x = 0.55,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+
+```
+
+
+```{r frases_prop_efetivos}
+#### frases para evoluções sobre prorção de efetivos
+
+## ano maior queda
+serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
+  setorder(ano)  %>% 
+  .[,`:=`(diff_p_efetivo = p - lag(p),
+          anterior = lag(total),
+          panterior = lag(p))] %>% 
+  .[which.min(diff_p_efetivo),] -> anoqueda_p
+
+## ano com maior valor
+serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
+  .[,`:=`(diff_efetivo = total - lag(total),
+          anterior = lag(total),
+          panterior = lag(p))] %>% 
+  .[which.min(p),] -> anomenor_p
+
+
+## ano com maior variação efetivos não indígenas
+serie_efetivos[etnia != "Indígenas" & efetivo,] %>% 
+  .[,`:=`(diff_p_efetivo = p - lag(p),
+          anterior = lag(total),
+          panterior = lag(p))] %>% 
+  .[which.max(abs(p)),] -> ano_varmax_outros
+
+```
+
+
+
+Tais evoluções impactaram na evolução da proporção de vínculos efetivos de indígenas. Em `r minano`, `r serie_efetivos[ano == minano & etnia == "Indígenas" & efetivo,formatar_num(p,1)]`% dos vínculos ativos de indígenas eram efetivos. Este percentual sofre a maior queda de `r anoqueda_p$ano - 1` para `r anoqueda_p$ano``r ifelse(anoqueda_p$ano == anosalto$ano," (coincidindo com o salto no número de não efetivos)","")`, chegando a `r anoqueda_p[,formatar_num(p,1)]`%, alcançando seu menor valor de `r anomenor_p[,formatar_num(p,1)]`% em `r anomenor_p$ano`, finalizando em `r maxano` com `r serie_efetivos[ano == maxano & etnia == "Indígenas" & efetivo,formatar_num(p,1)]`%. 
+
+Dentre os não-indígenas, a maior variação do percentual de vínculos efetivos ocorreu de `r ano_varmax_outros$ano - 1` para `r ano_varmax_outros$ano`, saltando de `r ano_varmax_outros$panterior`% para `r ano_varmax_outros$p`%.
+
+
+```{r plot_prop_efetivos}
+
+serie_efetivos %>%
+  # filter( nome_cor_origem_etnica == "INDIGENA")%>%
+  filter(efetivo) %>% 
+  mutate(efetivo = ifelse(efetivo,'Efetivos','Não-efetivos')) %>%
+  ggplot_cat(aes(x = ano,
                  y = p,
                  # col = ifelse(efetivo,"Efetivos","Não-efetivos")
                  col = etnia
@@ -988,9 +1115,7 @@ ggplotly_c(efetivos_mes_etnia)%>%
 ```
 
 
-
-
-## Funções e lideranças
+# Funções e lideranças
 
 
 ```{r funcao}
@@ -1014,14 +1139,44 @@ df_funcao %>%
       #                "Indígenas",
       #                "Demais raça/cor")
       )] %>%
-  .[,p := round(100*total/sum(total)),
+  .[,p := round(100*total/sum(total),1),
     .(nome_sexo,
       nome_cor_origem_etnica
     )] %>%
   #sexo como fator ordenado
   .[,`:=`(nome_sexo2 = factor(nome_sexo,levels = c("Mas","Fem"),ordered = T),
-          p_ajust = ifelse(nome_sexo == "Fem",-p,p))] %>%
-  filter(funcao & nome_cor_origem_etnica != "NAO INFORMADO")%>%
+          p_ajust = ifelse(nome_sexo == "Fem",-p,p))] -> df_etnia_sexo_funcao
+
+
+### Para o texto
+
+# incidência de funções: Indígenas x Damais
+df_etnia_sexo_funcao[,.(i_funcao = 100*sum(total*funcao)/sum(total)),
+                     .(indigenas = 
+                         ifelse(nome_cor_origem_etnica == "INDIGENA",
+                                "indigenas","demais"))] %>%
+  dcast(. ~ indigenas,value.var = "i_funcao") -> i_funcao
+
+
+# diferença na incidência de funções: Indígenas x Damais
+df_etnia_sexo_funcao[,.(i_funcao = 100*sum(total*funcao)/sum(total)),
+                     .(nome_sexo,
+                       indigenas = 
+                         ifelse(nome_cor_origem_etnica == "INDIGENA",
+                                "indigenas","demais"))] %>%
+  dcast(indigenas ~ nome_sexo,value.var = "i_funcao") %>%
+  .[,diff_sexo := Mas - Fem] %>% 
+  dcast(.~indigenas,value.var = 'diff_sexo') -> i_funcao_sexo
+```
+
+
+Em `r dt_max_show`, a incidência de funções entre vínculos indígenas é de `r i_funcao$indigenas %>% formatar_num(1)`%, `r ifelse(i_funcao[,indigenas > demais],"superior","inferior")` à observada nas demais categorias de raça/cor, na ordem de `r i_funcao$demais %>% formatar_num(1)`%. As categorias onde se observa maior parcela de vínculos com função são `r df_etnia_sexo_funcao[,.(i_funcao = 100*sum(total*funcao)/sum(total)),.(etn = nome_cor_origem_etnica)] %>% setorder(-i_funcao) %>% head(3) %>% .[,paste0(etn," (",round(i_funcao,1),"%)")] %>% lista_e(" e ")`.
+
+Quanto ao gênero, o percentual de exercício de funções entre homens é `r i_funcao_sexo$indigenas %>% abs %>% formatar_num(1)` pontos percentuais `r ifelse(i_funcao_sexo$indigenas < 0,'abaixo','acima')` do observado entre mulheres. Nas demais categorias, a diferença é de `r  i_funcao_sexo$demais %>% abs %>% formatar_num(1)` `r  ifelse(i_funcao_sexo$demais < 0,'a menos','a mais')` entre homens em comparação às mulheres.
+
+```{r plot_funcao}
+df_etnia_sexo_funcao %>%
+  filter(funcao & nome_cor_origem_etnica != "NAO INFORMADO") %>%
   ggplot_cat(aes(x = nome_cor_origem_etnica, #etnia,
                  y = p_ajust,
                  fill = nome_sexo2)) +
@@ -1050,6 +1205,9 @@ ggplotly_c(funcao_sexo_etnia) %>%
                  )
 ```
 
+
+
+
 ```{r serie_funcao}
 df_funcao[,.(total = sum(total)),
             .(mes,
@@ -1064,12 +1222,40 @@ df_funcao[,.(total = sum(total)),
                   nome_funcao
                 )
               )]  %>%
-  .[,p := round(100*total/sum(total)),
+  .[,p := round(100*total/sum(total),1),
     .(mes,
       # nome_sexo,
       etnia )] %>%
   # filter( nome_cor_origem_etnica == "INDIGENA")%>%
-  filter(funcao) %>%
+  filter(funcao) -> df_serie_funcao
+
+## para o texto
+
+# vale, pico das séries e marcador de APF maior que indígenas
+df_serie_funcao %>% 
+  dcast(mes ~ etnia,value.var = 'p') %>%
+  .[,
+    `:=`(
+      vale_pico = (`Indígenas` %in% range(`Indígenas`)),
+      menor_apf = (`Indígenas` < `Demais raça/cor`)
+      )
+    ] %>%
+  janitor::clean_names() -> anls_serie_funcao
+
+# apenas o range
+anls_serie_funcao[(vale_pico),] %>%
+  setorder(indigenas) -> range_funcao
+
+# maior mês com mais funções nas demais etnias
+maior_mes_dif <- anls_serie_funcao[(menor_apf),max(mes)]
+```
+
+O percentual de vínculos de indígenas que assumem alguma função observou o seu valor mais baixo em `r range_funcao[1,as.Date(paste0(mes,"01"),"%Y%m%d") %>% format("%B de %Y")]`, com `r range_funcao[1,indigenas]`%, e seu maior valor em `r range_funcao[2,as.Date(paste0(mes,"01"),"%Y%m%d") %>% format("%B de %Y")]`, com `r range_funcao[2,indigenas]`%. O útimo período em que o percentual de funções entre indígenas era menor que o observado para as demais categorias foi em  `r maior_mes_dif %>% paste0("01") %>% as.Date("%Y%m%d") %>% format("%B de %Y")`, quando `r anls_serie_funcao[mes == maior_mes_dif,] -> prev_i;prev_i[,indigenas]`% dos indígenas exerciam funções, enquanto este percentual nas demais categorias era de `r prev_i[,demais_raca_cor]`%.
+
+
+```{r plot_serie_funcao}
+
+df_serie_funcao %>%
   ggplot_cat(aes(x = mes,
                  y = p,
                  # col = ifelse(efetivo,"Efetivos","Não-efetivos")
@@ -1095,11 +1281,124 @@ ggplotly_c(funcao_mes_etnia)%>%
 
 ```
 
+## Níveis de função FCE e CCE
 
-```{r piramide_niveis}
+```{r serie_niveis}
 df_funcao_total <- readRDS("../data/df_funcao_total.rds")
 
 
+df_funcao_total[,.(total = sum(total),
+                   total_fc_cce = sum(total_funcao)),
+                .(ano = ymd(paste0(mes,"01")) %>% year,
+                  etnia,nivel_ord)] %>%
+  filter(ano >= 2022) -> serie_niveis
+
+serie_niveis %>%
+  copy %>%
+  # pegando os níveis mais frequentes por ano e etnia
+  setorder(ano,etnia,-total_fc_cce) %>% 
+  group_by(ano,etnia) %>%
+  slice_head(n = 1) %>%
+  ungroup %>%
+  setDT() %>% 
+  # pegando os níveis que 'dominaram' por mais tempo
+  group_by(etnia,nivel_ord) %>% 
+  summarise(n_anos = n()) %>% 
+  setorder(etnia,-n_anos) %>% #View
+  slice_head(n = 1) %>% 
+  ungroup() %>% 
+  setDT() %>% 
+  # pivoteando
+  dcast(. ~ etnia,value.var = 'nivel_ord') %>%
+  janitor::clean_names() %>%
+  setDT -> niveis_historicos
+```
+
+
+Na maior parte do tempo desde `r serie_niveis[,min(ano)]`, indígenas com FCE ou CCE ocuparam, majoritariamente, o `r niveis_historicos$indigenas`. Já dentre os vínculos categorizados com diferentes declarações de raça/cor, o nível dominante foi `r niveis_historicos$demais_raca_cor`.
+
+
+```{r plot_serie_niveis}
+serie_niveis %>%
+  ggplot_cat(
+    aes(
+      x = ano,
+      y = total_fc_cce,
+      col = nivel_ord)
+    ) +
+  geom_line(size = 1.3) +
+  geom_point(size = 2) +
+  labs(x = NULL,y = "Quantitativo de vínculos",col = NULL) +
+  facet_wrap(.~etnia,scales = "free_y") -> serie_niveis
+
+ggplotly_c(serie_niveis)
+```
+
+
+
+```{r tabela_niveis}
+
+# nível mais frequente entre indígenas
+maior_nivel_ind <- df_funcao_total[mes == dt_max_siape,
+                                   .(total_funcao = sum(total_funcao)
+                                     ),
+                                   .(etnia,nivel)] %>%
+  dcast(nivel ~ etnia,value.var = 'total_funcao') %>%
+  janitor::clean_names() %>%
+  setDT %>% 
+  setorder(-indigenas)
+
+# paridade de gênero nos níveis
+df_funcao_total[mes == dt_max_siape] %>% 
+  dcast(nivel +  etnia ~ nivel_sexo,value.var = 'p_sexo') %>%
+  janitor::clean_names() %>%
+  setDT %>% 
+  .[,`:=`(paridade_r = abs(fem)/mas,
+          paridade_d = mas + fem)] %>%
+  setorder(-paridade_r) -> paridade_genero_etnia
+
+paridade_indigenas <- paridade_genero_etnia[etnia == "Indígenas",]
+paridade_demais <- paridade_genero_etnia[etnia != "Indígenas",]
+
+# frases paridade
+frase_paridade_i <- paridade_indigenas[abs(fem) >= 50,
+                                       ifelse(.N == 0,
+                                              "não há níveis com maior presença de mulheres",
+                                              paste0("há maioria de mulheres ",
+                                                     lista_e(
+                                                       paste0("no ",
+                                                              as.character(sort(nivel))
+                                                              ),
+                                                       " e no "
+                                                       )
+                                                     )
+                                              )
+                                       ]
+
+
+frase_paridade_d <- paridade_demais[abs(fem) >= 50,
+                                       ifelse(.N == 0,
+                                              "não há níveis com maior presença de mulheres",
+                                              paste0("há maioria de mulheres ",
+                                                     lista_e(
+                                                       paste0("no ",
+                                                              as.character(sort(nivel))
+                                                              ),
+                                                       " e no "
+                                                       )
+                                                     )
+                                              )
+                                       ]
+```
+
+Em `r dt_max_show`, uma análise dos níveis de funções CCE ou FCE exercidas por indígenas revela uma maior incidência para `r maior_nivel_ind[1,nivel]`,com `r maior_nivel_ind[1,indigenas]-> max_nivel_ind;max_nivel_ind` vínculos ativos, `r formatar_num(100*max_nivel_ind/maior_nivel_ind[,sum(indigenas)],1)`% dos indígenas com FCE ou CCE. Nas demais categorias de raça/cor, observa-se um total de `r maior_nivel_ind[1,demais_raca_cor]-> max_nivel_d;max_nivel_d` vínculos ativos (`r formatar_num(100*max_nivel_d/maior_nivel_ind[,sum(demais_raca_cor)],1)`% do total).
+
+Com relação à paridade de gênero nos diferentes níveis de função, há uma maior presença feminina de vínculos de indígenas para o `r paridade_indigenas[1,head(nivel,1)]`, com `r paridade_indigenas[1,abs(fem)]`% de mulheres, enquanto o nível com menor percentual é `r tail(paridade_indigenas,1) %>% .[,nivel]`, com `r tail(paridade_indigenas,1) %>% .[,abs(fem)]`%.
+
+Dentre os vínculos de indígenas, `r frase_paridade_i`. Nas demais categorias de raça/cor, `r frase_paridade_d`.
+
+
+```{r piramide_niveis}
 df_funcao_total %>%
   filter(mes == dt_max_siape) %>%
   ggplot_cat(aes(x = nivel_ord,
@@ -1151,41 +1450,83 @@ ggplotly_c(prev_perc)
 ```
 
 
-```{r serie_niveis}
-df_funcao_total[,.(total = sum(total),
-                   total_fc_cce = sum(total_funcao)),
-                .(ano = ymd(paste0(mes,"01")) %>% year,
-                  etnia,nivel_ord)] %>%
-  filter(ano >= 2022) %>%
-  ggplot_cat(
-    aes(
-      x = ano,
-      y = total_fc_cce,
-      col = nivel_ord)
-    ) +
-  geom_line(size = 1.3) +
-  geom_point(size = 2) +
-  labs(x = NULL,y = "Quantitativo de vínculos",col = NULL) +
-  facet_wrap(.~etnia,scales = "free_y") -> serie_niveis
+## Índice de equidade para função FCE
 
-ggplotly_c(serie_niveis)
+```{r plot_razao_equivalencia_fce}
+df_funcao_efetivos <- readRDS("../data/df_funcao_efetivos.rds") %>%
+  filter(mes > 202112) %>%
+  mutate(equidade = round(p_etnia/p_total,1),
+         ano = substr(mes,1,4) %>% as.numeric)
+
+
+df_funcao_efetivos %>%
+  copy %>%
+  # pegando os níveis mais frequentes por ano e etnia
+  setorder(ano,nome_sexo,-equidade) %>% 
+  group_by(ano,nome_sexo) %>%
+  slice_head(n = 1) %>% 
+  ungroup %>%
+  setDT() %>% 
+  # pegando os níveis que 'dominaram' por mais tempo
+  group_by(nome_sexo,nivel_ord) %>% 
+  summarise(n_anos = n()) %>% 
+  setorder(nome_sexo,-n_anos) %>% 
+  setDT() -> equidades_historicas
+
+frase_equidade <- 
+  equidades_historicas[,
+                       .(frase = 
+                           ifelse(.N > 1,
+                                  paste0('os níveis com maior equidade variaram entre as faixas ',
+                                         nivel_ord %>% 
+                                           sort %>%
+                                           as.character %>% 
+                                           gsub("Nível ","",.) %>%
+                                           lista_e(" e ")
+                                         ),
+                                  paste0('apenas os níveis ',
+                                         as.character(nivel_ord)%>% 
+                                           gsub("Nível ","",.) ,
+                                         ' apresentou maior equidade.'
+                                         )
+                                  )
+                         ),
+                         .(nome_sexo)
+                         ] %>%
+  dcast(. ~ nome_sexo,value.var = 'frase')
 ```
 
 
-```{r razao_equivalencia_fce}
-df_funcao_efetivos <- readRDS("../data/df_funcao_efetivos.rds")
+Uma forma de analisar o acesso a níveis de liderança pode ser determinada por um *índice de equidade de acessos*. O indicador é construído partindo-se da hipótese de que, na ausência de desigualdade racial e de gênero no acesso a cargos de liderança, a proporção de indígenas em cargos FCE deveria ser equivalente à sua proporção entre os servidores efetivos ativos. Assim, este índice é definido como sendo a razão entre o percentual de indígenas em cargos de liderança (FCE) e o percentual de pessoas indígenas no quadro efetivo ativo. Mais precisamente, 
 
+$$\text{Índice de equidade} = \frac{\text{% indígenas em cargos FCE}}{\text{% indígenas no quadro efetivo ativo}}$$
+
+O valor é interpretado de acordo com as seguintes faixas de valores:
+
+* $= 1$ → Equidade na ocupação dos cargos
+
+* $< 1$ → Sub-representação de indígenas na liderança
+
+* $> 1$ → Sobre-representação
+
+
+O indicador pode ser desagregado por gênero e por nível de função. É importante ressaltar que o indicador considera apenas os vínculos efetivos e níveis de funções FCE.
+
+Ao analisar a série histórica do indicador de equidade por nível FCE e gênero, nota-se que `r frase_equidade$Fem`. Por outro lado, entre os homens, `r frase_equidade$Mas`.
+
+
+```{r razao_equivalencia_fce}
 df_funcao_efetivos %>%
-  filter(mes > 202112) %>%
   ggplot_cat(
     aes(
       x = mes %>% paste0(.,"01") %>% ymd %>% year,
-      y = round(p_etnia/p_total,1),
+      y = equidade,
       col = nivel_ord
       )
     ) + 
   geom_line(size =  1.3) + 
   geom_point(size = 2) + 
+  geom_hline(yintercept = 1) +
   labs(x = NULL,
        y = "Razão de equidade",col = NULL) + 
   facet_wrap(.~nome_sexo)-> serie_razao
