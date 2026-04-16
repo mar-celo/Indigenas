@@ -1,0 +1,334 @@
+/* ============================================================
+   Observatório de Pessoal — GOV.BR
+   Identidade visual: azul institucional + laranja indígena
+   CGINF/DIGID/SGP/MGI
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Rawline:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Paleta GOV.BR Observatório */
+  --gov-azul:          #1351B4;   /* Azul principal GOV.BR */
+  --gov-azul-escuro:   #0c326f;   /* Azul escuro (headers) */
+  --gov-azul-claro:    #d4e5ff;   /* Azul claro (fundos) */
+  --gov-laranja:       #FF7800;   /* Laranja — destaque indígena */
+  --gov-laranja-claro: #FFF0E0;   /* Fundo laranja suave */
+  --gov-verde:         #168821;   /* Verde GOV.BR (acessório) */
+
+  /* Neutros */
+  --bg:           #F4F4F4;
+  --surface:      #FFFFFF;
+  --border:       #E0E0E0;
+  --text:         #1C1C1C;
+  --text-muted:   #636363;
+
+  /* Sombras */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:  0 4px 14px rgba(0,0,0,0.10);
+  --shadow-lg:  0 10px 36px rgba(0,0,0,0.12);
+
+  /* Tipografia */
+  --font-body:    'Rawline', 'Inter', system-ui, sans-serif;
+  --font-heading: 'Rawline', 'Inter', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body) !important;
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+  line-height: 1.75 !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── HERO HEADER ─────────────────────────────────────────── */
+.quarto-title-block,
+#title-block-header {
+  background: linear-gradient(135deg, var(--gov-azul-escuro) 0%, var(--gov-azul) 60%, #2670E8 100%) !important;
+  color: white !important;
+  padding: 40px 36px 36px !important;
+  margin: 0 -24px 32px !important;
+  border-radius: 0 0 16px 16px !important;
+  box-shadow: var(--shadow-lg) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.quarto-title-block::after {
+  content: '' !important;
+  position: absolute !important; bottom: -40px !important; right: -40px !important;
+  width: 220px !important; height: 220px !important; border-radius: 50% !important;
+  background: rgba(255,255,255,0.05) !important; pointer-events: none !important;
+}
+
+.quarto-title-block .title,
+#title-block-header h1.title {
+  font-family: var(--font-heading) !important;
+  font-size: clamp(1.5rem, 3.5vw, 2.3rem) !important;
+  font-weight: 700 !important;
+  color: white !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+}
+.quarto-title-block .subtitle,
+#title-block-header p.subtitle {
+  font-size: 1.05rem !important;
+  color: rgba(255,255,255,0.85) !important;
+  margin-top: 6px !important;
+}
+.quarto-title-block .subtitle em {
+  color: #ffd080 !important;        /* amarelo-ouro para ênfase no subtítulo */
+  font-style: normal !important;
+  font-weight: 600 !important;
+}
+.quarto-title-meta-heading {
+  font-size: 0.65rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
+  color: rgba(255,255,255,0.55) !important;
+  font-weight: 600 !important;
+}
+.quarto-title-meta-contents,
+.quarto-title-meta-contents a,
+.quarto-title-meta-contents p {
+  color: rgba(255,255,255,0.9) !important;
+}
+
+/* ── SEÇÕES COMO CARDS ───────────────────────────────────── */
+section {
+  background: var(--surface) !important;
+  border-radius: 12px !important;
+  padding: 28px 32px !important;
+  margin-bottom: 20px !important;
+  box-shadow: var(--shadow-sm) !important;
+  border: 1px solid var(--border) !important;
+  position: relative !important;
+  z-index: 0 !important;   /* impede que sobreponha o sumário lateral */
+}
+/* barra lateral azul nas seções */
+section::before {
+  content: '' !important;
+  display: block !important;
+  width: 4px !important; height: 100% !important;
+  background: linear-gradient(180deg, var(--gov-laranja), var(--gov-azul)) !important;
+  position: absolute !important; left: 0 !important; top: 0 !important;
+  border-radius: 12px 0 0 12px !important;
+}
+
+/* ── HEADINGS ────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: var(--font-heading) !important;
+  letter-spacing: -0.01em !important;
+}
+h2 {
+  font-size: 1.45rem !important;
+  font-weight: 700 !important;
+  color: var(--gov-azul-escuro) !important;
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 10px !important;
+  border-bottom: 2px solid var(--gov-azul-claro) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+h2::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 10px !important; height: 10px !important;
+  border-radius: 50% !important;
+  background: var(--gov-laranja) !important;
+  flex-shrink: 0 !important;
+}
+h3 {
+  font-size: 1.15rem !important;
+  font-weight: 600 !important;
+  color: var(--gov-azul) !important;
+}
+h4 {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  color: var(--gov-azul-escuro) !important;
+}
+
+/* ── TEXTO ───────────────────────────────────────────────── */
+p { font-size: 0.97rem !important; line-height: 1.8 !important; color: #374151 !important; }
+strong { color: var(--gov-azul-escuro) !important; font-weight: 700 !important; }
+
+/* ── TOC ─────────────────────────────────────────────────── */
+/* Sumário: herda posicionamento do Quarto sem override */
+
+#TOC {
+  background: var(--surface) !important;
+  border: 1px solid var(--gov-azul-claro) !important;
+  border-radius: 10px !important;
+  padding: 16px 20px !important;
+  font-size: 0.88rem !important;
+}
+#TOC a { color: var(--gov-azul) !important; }
+#TOC a:hover { color: var(--gov-laranja) !important; }
+#TOC li { margin: 4px 0 !important; }
+
+/* ── BLOCOS DE CÓDIGO ────────────────────────────────────── */
+details {
+  background: #f8fafc !important;
+  border: 1px solid #dce5f0 !important;
+  border-radius: 6px !important;
+  margin: 16px 0 !important;
+  overflow: hidden !important;
+}
+details summary {
+  padding: 9px 16px !important;
+  cursor: pointer !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  color: var(--gov-azul) !important;
+  background: var(--gov-azul-claro) !important;
+  border-radius: 6px !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  list-style: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+details summary::-webkit-details-marker { display: none !important; }
+details summary::before {
+  content: '</>' !important;
+  font-family: monospace !important;
+  font-size: 0.78rem !important;
+  background: var(--gov-azul) !important;
+  color: white !important;
+  padding: 1px 5px !important;
+  border-radius: 3px !important;
+}
+details[open] summary { border-radius: 6px 6px 0 0 !important; background: #c2d6f5 !important; }
+
+pre.sourceCode {
+  background: var(--gov-azul-escuro) !important;
+  border-radius: 0 0 6px 6px !important;
+  padding: 18px 20px !important;
+  margin: 0 !important;
+  font-size: 0.8rem !important;
+  line-height: 1.7 !important;
+  border: none !important;
+}
+pre.sourceCode code { color: #e2e8f0 !important; font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important; }
+.sourceCode .co { color: #7da8c5 !important; font-style: italic !important; }
+.sourceCode .fu { color: #79d4a6 !important; }
+.sourceCode .st { color: #f9c96c !important; }
+.sourceCode .kw { color: #89b4e8 !important; font-weight: bold !important; }
+.sourceCode .dv { color: #f28779 !important; }
+
+/* ── TABELAS ─────────────────────────────────────────────── */
+thead th {
+  background: var(--gov-azul) !important;
+  color: white !important;
+  padding: 11px 16px !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+td { padding: 9px 14px !important; border-bottom: 1px solid #f0f2f4 !important; }
+tr:hover td { background: var(--gov-azul-claro) !important; }
+
+/* ── IMAGENS ─────────────────────────────────────────────── */
+img {
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-md) !important;
+  max-width: 100% !important;
+  display: block !important;
+  margin: 20px auto !important;
+}
+
+/* ── LINKS ───────────────────────────────────────────────── */
+a:not(.anchor-section) {
+  color: var(--gov-azul) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+}
+a:not(.anchor-section):hover {
+  color: var(--gov-laranja) !important;
+  text-decoration: underline !important;
+}
+
+/* ── BOTÕES / BADGES ─────────────────────────────────────── */
+.badge-indigena {
+  background: var(--gov-laranja) !important;
+  color: white !important;
+  border-radius: 20px !important;
+  padding: 2px 12px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.03em !important;
+}
+
+/* ── KPI CARDS ───────────────────────────────────────────── */
+.kpi-row {
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  margin: 1.5rem 0;
+}
+.kpi-card {
+  flex: 1 1 180px;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  box-shadow: var(--shadow-sm);
+  border-top: 4px solid var(--gov-azul);
+  text-align: center;
+}
+.kpi-card.destaque { border-top-color: var(--gov-laranja); }
+.kpi-card .kpi-valor {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--gov-azul-escuro);
+  line-height: 1.1;
+}
+.kpi-card.destaque .kpi-valor { color: var(--gov-laranja); }
+.kpi-card .kpi-label {
+  font-size: .82rem;
+  color: var(--text-muted);
+  margin-top: .35rem;
+}
+
+/* ── CALLOUT HIGHLIGHT ───────────────────────────────────── */
+.callout-indigena {
+  background: var(--gov-laranja-claro);
+  border-left: 5px solid var(--gov-laranja);
+  border-radius: 0 8px 8px 0;
+  padding: 14px 18px;
+  margin: 1.2rem 0;
+  font-size: 0.97rem;
+}
+
+/* ── AVISO / WARNING ─────────────────────────────────────── */
+pre:not(.sourceCode) {
+  background: #fff8e6 !important;
+  border-left: 4px solid #f39c12 !important;
+  border-radius: 0 6px 6px 0 !important;
+  padding: 12px 16px !important;
+  font-size: 0.82rem !important;
+  color: #7c4f00 !important;
+}
+
+/* ── SCROLLBAR ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #c0cfe6; border-radius: 99px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+
+/* ── LARGURA DO CORPO ────────────────────────────────────── */
+/* Limita o conteúdo principal sem interferir no grid do Quarto */
+.quarto-container { max-width: 1280px !important; }
+
+/* ── RESPONSIVO ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .quarto-title-block { padding: 24px 20px !important; margin: 0 -16px 24px !important; }
+  section { padding: 20px 18px !important; }
+  .kpi-row { gap: 0.8rem; }
+}
