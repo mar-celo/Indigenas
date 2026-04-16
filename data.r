@@ -17,6 +17,7 @@ library(stringr)
 library(reticulate)
 library(janitor)
 library(readxl)
+library(geobr)
 
 
 # objetos e diretório  --------------------------------------------------------
@@ -126,8 +127,20 @@ df_indigenas_uf <- df_serv %>%
   collect() # Agora sim, trazemos apenas 27 linhas para o R
 
 
+# Carregamento da malha via geobr
+mapa_br <- geobr::read_state(year = 2020, showProgress = FALSE)
+
+# Join Final
+df_mapa_final <- mapa_br %>%
+  left_join(df_indigenas_uf, by = c("abbrev_state" = "uf")) %>%
+  mutate(total_indigenas = coalesce(total_indigenas, 0))
+
+setorder(df_mapa_final,-total_indigenas)
+
+
 ## salvando
 saveRDS(df_indigenas_uf,'data/df_indigenas_uf.rds')
+saveRDS(df_mapa_final,'data/df_mapa_final.rds')
 
 
 # ==============================================================================

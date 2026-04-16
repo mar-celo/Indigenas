@@ -817,7 +817,7 @@ dt3
 ```
 
 
-```{r mapa, eval = F}
+```{r mapa}
 # ==============================================================================
 # 2. PROCESSAMENTO NO DATABRICKS (SPARK)
 # ==============================================================================
@@ -828,26 +828,18 @@ dt3
 # ==============================================================================
 
 
-# Carregamento da malha via geobr
-mapa_br <- geobr::read_state(year = 2020, showProgress = FALSE)
-
-# Join Final
-df_mapa_final <- mapa_br %>%
-  left_join(df_indigenas_uf, by = c("abbrev_state" = "uf")) %>%
-  mutate(total_indigenas = coalesce(total_indigenas, 0))
-
-setorder(df_mapa_final,-total_indigenas)
+df_mapa_final <- readRDS("../data/df_mapa_final.rds")
 
 df_mapa_h3 <- head(df_mapa_final,3) %>% setDT
 
-# Com relação à UF de vínculo, os Estados que mais concentram vínculos indígenas são `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
 
 ```
 
 
+Com relação à UF de vínculo, os Estados que mais concentram vínculos indígenas são `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
 
 
-```{r show_mapa, eval = F}
+```{r show_mapa}
 # ==============================================================================
 # 4. GERAÇÃO DO MAPA COM GGPLOT2
 # ==============================================================================
@@ -888,8 +880,8 @@ ggplot(data = df_mapa_final) +
     legend.title = element_text(face = "bold"),
     legend.position = "right"
     )  -> mapa_indigenas
-ggplotly(mapa_indigenas)
-# mapa_indigenas
+# ggplotly(mapa_indigenas)
+mapa_indigenas
 ```
 
 
