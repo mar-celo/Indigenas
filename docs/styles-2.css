@@ -10,9 +10,9 @@
   --cinza-claro-text: #7c7c7c;
   --cinza-claro: #ededed; /* Elementos neutros */
   --fundo-suave: #F0F0FF;
-  
+
   /* Padronização de escala */
-  --font-base-size: 2.2rem;  
+  --font-base-size: 2.2rem;
   --line-height-base: 1.6;
 }
 
@@ -23,10 +23,10 @@ body {
   color: var(--cinza-texto);
   background-color: #ffffff;
   line-height: var(--line-height-base);
-  max-width: 100%;
-  margin: 0 auto;
+  max-width: 80%;
+  margin: auto;
   padding: 3.125rem;   /* 50px */
-  
+
   /* Bloqueio de hifenização global */
   hyphens: none;
   -webkit-hyphens: none;
@@ -42,8 +42,8 @@ body {
 }
 
 /* --- TÍTULO DA TOC --- */
-#TOC #header, 
-#TOC h2, 
+#TOC #header,
+#TOC h2,
 .toc-title {
   color: var(--azul-odp) !important;
   font-family: 'Albert Sans', sans-serif !important;
@@ -66,8 +66,8 @@ body {
 #TOC li {
   padding: 5px 0 !important;
   text-indent: 0 !important;
-  transition: all 0.2s ease-in-out; /* Suaviza o movimento do marcador */ 
-  padding-left: 1.5rem !important; 
+  transition: all 0.2s ease-in-out; /* Suaviza o movimento do marcador */
+  padding-left: 1.5rem !important;
   position: relative;
 }
 
@@ -280,9 +280,9 @@ table, .figure {
   clear: both !important;
 }
 
-.html-widget, 
-.plotly, 
-.js-plotly-plot, 
+.html-widget,
+.plotly,
+.js-plotly-plot,
 .plotly-graph-div {
   width: 100% !important;
   max-width: 100% !important;
@@ -314,5 +314,5 @@ ul, ol {
 
 li {
   margin-bottom: 0.5rem;
-  text-align: left; 
+  text-align: left;
 }

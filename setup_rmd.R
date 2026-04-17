@@ -20,7 +20,7 @@ knitr::opts_chunk$set(list(warning = FALSE,
 
 
 ### opções de tamanhos de texto dos itens (eixo, legendas, etc)
-txt_size <- 6
+txt_size <- 9
 
 ### opção de tamanho de texto no label (geom_text)
 txt_geom_size <- 5

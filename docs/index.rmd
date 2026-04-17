@@ -4,11 +4,10 @@ title: "Análise da representatividade Indígena na Administração Pública Fed
 author: "CGINF/DIGID/SGP/MGI"
 output:
   html_document:
-    theme: default
-    css: styles-2.css
-    # css: css_gabriel.css
     self-contained: true
     toc: true
+    css: styles-2.css
+    # css: css_gabriel.css
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
@@ -73,17 +72,17 @@ ggplotly_c <- function(gg_obj){
 
 ```
 
-<!-- <style type="text/css"> -->
+<style type="text/css">
 
-<!-- .main-container { -->
+.main-container {
 
-<!--   max-width: 90%; -->
+  max-width: 85%;
 
-<!--   margin-left: auto; -->
+  margin-left: auto;
 
-<!--   margin-right: auto; -->
+  margin-right: auto;
 
-<!-- } -->
+}
 
 <!-- strong { -->
 <!--     font-weight: 700; -->
@@ -104,10 +103,10 @@ ggplotly_c <- function(gg_obj){
 <!--     color: #0c326f; -->
 <!-- } -->
 
-<!-- </style> -->
+</style>
 
 
-
+<!-- <div class = 'report'> -->
 
 ```{r configDT}
 # table
@@ -237,6 +236,7 @@ df_indigena_mes <-
 menor_rep <- df_indigena_mes[which.min(pct)]
 maior_rep <- df_indigena_mes[which.max(pct)]
 ```
+
 Desde `r year(dt_range[1])`, a representatividade de indígnas na APF alcançou seu ponto mais baixo em `r menor_rep[,data]`, com `r menor_rep[,n] %>% formatar_num(0)` vínculos (`r menor_rep[,pct] %>% formatar_num(2)`% do total), sendo que o pico foi observado em  `r maior_rep[,data]`, com `r maior_rep[,n] %>% formatar_num(0)` vínculos (`r maior_rep[,pct] %>% formatar_num(2)`%).
 
 Entre 2021 e 2022, é possível notar um aumento no total absoluto acompanhado de uma queda no percentual, o que pode ser explicado por um aumento no número total de vínculos mais acelerado para as outras categorias de cor ou origem étnica.
@@ -655,7 +655,7 @@ treemap_escol
 ```
 
 
-# Órgão de vinculo
+## Órgão de vinculo
 
 <!-- ## Natureza jurídica do órgão -->
 
@@ -886,9 +886,11 @@ mapa_indigenas
 
 
 
-# Servidores efetivos
+
+# Saídas e ingressos de servidores efetivos
 
 
+## Servidores efetivos
 
 ```{r efetivos}
 df_efetivos <- readRDS('../data/df_efetivos.RDS') %>% 
@@ -918,7 +920,7 @@ prop_efetivos_last <-
 ```
 
 
-Em `r dt_max_show`, `r df_efetivos[nome_cor_origem_etnica == 'INDIGENA',round(100*sum(total*efetivo)/sum(total))]`% dos vínculos ativos de indígenas eram de servidores efetivos. Considerando todos os vínculos ativos da APF, este percentual era de  `r df_efetivos[,round(100*sum(total*efetivo)/sum(total))]`%. Entre os indígenas, os percentuais de efetivos paara mulheres e homens eram, respectivamente, `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Fem",p]`% e `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Mas",p]`%.
+Em `r dt_max_show`, `r df_efetivos[nome_cor_origem_etnica == 'INDIGENA',round(100*sum(total*efetivo)/sum(total))]`% dos vínculos ativos de indígenas eram de servidores efetivos. Considerando todos os vínculos ativos da APF, este percentual era de  `r df_efetivos[,round(100*sum(total*efetivo)/sum(total))]`%. Entre os indígenas, os percentuais de efetivos para mulheres e homens eram, respectivamente, `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Fem",p]`% e `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Mas",p]`%.
 
 ```{r plot_efetivos}
 ## plot 1
@@ -928,11 +930,11 @@ prop_efetivos_last %>%
                  fill = nome_sexo2)) +
   geom_col(position = 'dodge') +
   ylim(c(0,110)) + 
-  geom_text(aes(label = paste0(p,"%")),
+  geom_text(aes(y = p/2,label = paste0(p,"%")),
             size = 5,
-            col = pal_primaria["principal"],
-            position = position_dodge2(width = 1),
-            hjust = -0.2) + 
+            # col = pal_primaria["principal"],
+            col = "white",
+            position = position_dodge2(width = 1)) + 
   coord_flip() +
   labs(title = paste0("Incidência de Vínculos efetivos por sexo e raça/cor, ",
                       dt_max_show),
@@ -954,8 +956,6 @@ ggplotly_c(efetivos_sexo_etnia) %>%
 ```{r serie_efetivos}
 
 ## plot 2
-
-
 df_efetivos[,.(total = sum(total)),
             .(mes,
               # nome_sexo,
@@ -975,20 +975,20 @@ df_efetivos[,.(total = sum(total)),
 serie_efetivos[,min(ano)] -> minano
 serie_efetivos[,max(ano)] -> maxano
 
-## ano maior queda
-serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
+
+## série com evoluções de efetivos
+diff_efetivo <- serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
   setorder(ano)  %>% 
   .[,`:=`(diff_efetivo = total - lag(total),
+          diff_p_efetivo = p - lag(p),
           anterior = lag(total),
-          panterior = lag(p))] %>% 
-  .[which.min(diff_efetivo),] -> anoqueda 
+          panterior = lag(p))]
+
+## ano maior queda
+diff_efetivo[which.min(diff_efetivo),] -> anoqueda 
 
 ## ano com maior valor
-serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
-  .[,`:=`(diff_efetivo = total - lag(total),
-          anterior = lag(total),
-          panterior = lag(p))] %>% 
-  .[which.min(total),] -> anomenor
+diff_efetivo[which.min(total),] -> anomenor
 
 
 
@@ -996,12 +996,7 @@ serie_efetivos[etnia == "Indígenas" & efetivo,] %>%
 #### frases para NÃO efetivos
 
 ## ano maior queda
-serie_efetivos[etnia == "Indígenas" & !efetivo,] %>% 
-  setorder(ano) %>% 
-  .[,`:=`(diff_efetivo = total - lag(total),
-          anterior = lag(total),
-          panterior = lag(p))] %>% 
-  .[which.max(diff_efetivo),] -> anosalto
+diff_efetivo[which.max(diff_efetivo),] -> anosalto
 
 ```
 
@@ -1043,28 +1038,15 @@ ggplotly_c(efetivos_mes_indigenas)%>%
 ```{r frases_prop_efetivos}
 #### frases para evoluções sobre prorção de efetivos
 
-## ano maior queda
-serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
-  setorder(ano)  %>% 
-  .[,`:=`(diff_p_efetivo = p - lag(p),
-          anterior = lag(total),
-          panterior = lag(p))] %>% 
-  .[which.min(diff_p_efetivo),] -> anoqueda_p
+## ano com maior queda
+diff_efetivo[which.min(diff_p_efetivo),] -> anoqueda_p
 
 ## ano com maior valor
-serie_efetivos[etnia == "Indígenas" & efetivo,] %>% 
-  .[,`:=`(diff_efetivo = total - lag(total),
-          anterior = lag(total),
-          panterior = lag(p))] %>% 
-  .[which.min(p),] -> anomenor_p
+diff_efetivo[which.min(p),] -> anomenor_p
 
 
 ## ano com maior variação efetivos não indígenas
-serie_efetivos[etnia != "Indígenas" & efetivo,] %>% 
-  .[,`:=`(diff_p_efetivo = p - lag(p),
-          anterior = lag(total),
-          panterior = lag(p))] %>% 
-  .[which.max(abs(p)),] -> ano_varmax_outros
+diff_efetivo[which.max(abs(p)),] -> ano_varmax_outros
 
 ```
 
@@ -1104,6 +1086,134 @@ ggplotly_c(efetivos_mes_etnia)%>%
                                orientation = "h")
                  )
 
+```
+
+
+## Saídas e ingressos (com cotas x sem cotas)
+
+
+```{r tb_variacao_efetivos}
+serie_cotas <- readRDS('../data/serie_cotas.rds') %>% setDT
+df_indigenas_sit <- readRDS("../data/df_indigenas_sit.rds") %>% setDT
+
+## saídas por aposentadoria ou pensão
+df_indigenas_sit[situacao %in% c("Aposentado","Instituidor pensao") & 
+                   efetivo,
+                 .(grupo = "Aposentados/Inst. Pensões",
+                   total = sum(total)),
+                 .(ano  = substr(mes.f,1,4) %>% as.numeric)] %>%
+  setorder(ano) %>%
+  .[,diff_total := total - lag(total)] -> serie_saidas_indigenas
+
+
+##  ingressos por cotas
+serie_cotas_indigenas <- 
+  serie_cotas[no_cor_origem_etnica == "INDIGENA" & 
+                co_tipo_cota %in% c(1,4) &
+                !is.na(mes) &
+                mes >= 201601 &
+                mes <= 202601,
+              .(diff_total = sum(total))
+              ,
+              .(ano = substr(mes,1,4) %>% as.numeric,
+                grupo = 
+                  ifelse(co_tipo_cota == 4,
+                         "Cotas para Indígenas",
+                         ifelse(co_tipo_cota != 1,
+                                "Outras cotas",
+                                "Sem cotas")
+                         )
+                )
+              ] %>%  
+  setorder(ano) %>% 
+  .[,total := cumsum(diff_total),.(grupo)]
+
+
+serie_variacoes <- 
+  list(serie_saidas_indigenas,
+       serie_cotas_indigenas,
+       diff_efetivo %>%
+         select(ano,total,diff_efetivo) %>% 
+         .[,grupo := "Efetivos Ativos"] %>%
+         setnames("diff_efetivo","diff_total")
+       ) %>%
+  rbindlist(fill = T) %>%
+  filter(ano >= 2016) %>%
+  .[,grupo.f := factor(grupo,
+                       levels = 
+                         c("Efetivos Ativos",
+                           "Aposentados/Inst. Pensões",
+                           "Sem cotas",
+                           "Cotas para Indígenas"
+                           ),
+                        ordered = T)]
+
+
+### Para o texto
+periodo_negativo <- 
+  serie_variacoes[grupo == "Efetivos Ativos" & diff_total < 0,
+                  range(ano) %>% lista_e(" a ")]
+inicio_cotas <- 
+  serie_variacoes[grupo == "Cotas para Indígenas",
+                  min(ano)]
+
+ingresso_cotas <- 
+  serie_variacoes[grepl("cotas",grupo,ignore.case = T) & 
+                    ano >= inicio_cotas,
+                  .(ingressos  = sum(diff_total),
+                    cotas = sum(diff_total*(grupo == "Cotas para Indígenas"))
+                    )]
+  
+```
+
+O gráfico a seguir aponta as variações anuais de saídas e ingressos de servidores efetivos indígenas. A variação no número de efetivos foi negativa durante todo o período em que o número de novos aposentados e instituidores de pensões foi superior ao número de ingressantes, de `r periodo_negativo`. Portanto, a queda no número de servidores efetivos é explicada pelo fato de que a saída foi superior ao ingresso de novos servidores.
+
+
+```{r variacao_efetivos}
+serie_variacoes %>%
+  # filter
+  ggplot_cat(aes(x = ano,y = diff_total,col =grupo.f)) + 
+  geom_line(size = 1.2) + 
+  geom_point(size = 2) +
+  geom_hline(yintercept = 0) + 
+  labs(title = "Variação anual nos efetivos de indígenas por situação e forma de ingresso",
+       col = NULL,
+       x = NULL,
+       y = "Variação na quantidade de vínculos") -> plot_variacoes
+
+ggplotly_c(plot_variacoes)  %>%
+  plotly::layout(legend = list(x = 0.45,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
+
+```
+
+
+
+Desde o primeiro ingresso por cotas para indígenas, em `r inicio_cotas`, dos `r ingresso_cotas$ingressos` de ingressos que se autodeclaram nesta categoria, `r ingresso_cotas$cotas` (`r formatar_num(100*ingresso_cotas$cotas/ingresso_cotas$ingressos,1)`%) foram beneficiários desta política afirmativa.
+
+
+
+```{r evolucao_efetivos}
+serie_variacoes %>%
+  ggplot_cat(aes(x = ano,y = total,col =grupo.f)) + 
+  geom_line(size = 1.2) + 
+  geom_point(size = 2) + 
+  labs(title = "Vínculos efetivos de indígenas por situação e forma de ingresso",
+       col = NULL,
+       x = NULL,
+       y = "Total de vínculos") -> plot_evolucoes
+
+ggplotly_c(plot_evolucoes)  %>%
+  plotly::layout(legend = list(x = 0.45,
+                               y = 0,
+                               xanchor = "center",
+                               yanchor = "upper",
+                               orientation = "h")
+                 )
 ```
 
 
@@ -1176,7 +1286,8 @@ df_etnia_sexo_funcao %>%
   # ylim(c(-110,110)) +
   geom_text(aes(label = paste0(abs(p_ajust),"%")),
             size = 5,
-            col = pal_primaria["principal"],
+            # col = pal_primaria["principal"],
+            col = "white",
             face = 'bold',
             position = position_stack(vjust =  0.5)#,
             # hjust = -2
@@ -1355,13 +1466,16 @@ paridade_demais <- paridade_genero_etnia[etnia != "Indígenas",]
 # frases paridade
 frase_paridade_i <- paridade_indigenas[abs(fem) >= 50,
                                        ifelse(.N == 0,
-                                              "não há níveis com maior presença de mulheres",
+                                              "não há níveis FCE/CCE com maior presença de mulheres",
                                               paste0("há maioria de mulheres ",
                                                      lista_e(
-                                                       paste0("no ",
-                                                              as.character(sort(nivel))
+                                                       paste0("nos níveis ",
+                                                              nivel %>%
+                                                                sort %>%
+                                                                as.character %>%
+                                                                gsub("Nível ","",.)
                                                               ),
-                                                       " e no "
+                                                       " e "
                                                        )
                                                      )
                                               )
@@ -1370,42 +1484,47 @@ frase_paridade_i <- paridade_indigenas[abs(fem) >= 50,
 
 frase_paridade_d <- paridade_demais[abs(fem) >= 50,
                                        ifelse(.N == 0,
-                                              "não há níveis com maior presença de mulheres",
+                                              "não há níveis FCE/CCE com maior presença de mulheres",
                                               paste0("há maioria de mulheres ",
                                                      lista_e(
-                                                       paste0("no ",
-                                                              as.character(sort(nivel))
+                                                       paste0("nos níveis ",
+                                                              nivel %>%
+                                                                sort %>%
+                                                                as.character %>%
+                                                                gsub("Nível ","",.)
                                                               ),
-                                                       " e no "
+                                                       " e "
                                                        )
                                                      )
                                               )
                                        ]
 ```
 
-Em `r dt_max_show`, uma análise dos níveis de funções CCE ou FCE exercidas por indígenas revela uma maior incidência para `r maior_nivel_ind[1,nivel]`,com `r maior_nivel_ind[1,indigenas]-> max_nivel_ind;max_nivel_ind` vínculos ativos, `r formatar_num(100*max_nivel_ind/maior_nivel_ind[,sum(indigenas)],1)`% dos indígenas com FCE ou CCE. Nas demais categorias de raça/cor, observa-se um total de `r maior_nivel_ind[1,demais_raca_cor]-> max_nivel_d;max_nivel_d` vínculos ativos (`r formatar_num(100*max_nivel_d/maior_nivel_ind[,sum(demais_raca_cor)],1)`% do total).
+Em `r dt_max_show`, uma análise dos níveis de funções CCE ou FCE exercidas por indígenas revela uma maior incidência para `r maior_nivel_ind[1,nivel]`,com `r maior_nivel_ind[1,indigenas]-> max_nivel_ind;max_nivel_ind` vínculos ativos, `r formatar_num(100*max_nivel_ind/maior_nivel_ind[,sum(indigenas)],1)`% dos indígenas com FCE ou CCE. Nas demais categorias de raça/cor, observa-se um total de `r maior_nivel_ind[1,demais_raca_cor]-> max_nivel_d;max_nivel_d` vínculos ativos neste mesmo nível (`r formatar_num(100*max_nivel_d/maior_nivel_ind[,sum(demais_raca_cor)],1)`% dentre os que possuem função FCE ou CCE).
 
-Com relação à paridade de gênero nos diferentes níveis de função, há uma maior presença feminina de vínculos de indígenas para o `r paridade_indigenas[1,head(nivel,1)]`, com `r paridade_indigenas[1,abs(fem)]`% de mulheres, enquanto o nível com menor percentual é `r tail(paridade_indigenas,1) %>% .[,nivel]`, com `r tail(paridade_indigenas,1) %>% .[,abs(fem)]`%.
+Com relação à paridade de gênero nos diferentes níveis de função, há uma maior presença feminina de vínculos de indígenas para os níveis `r paridade_indigenas[1,head(nivel,1) %>% gsub("Níve ","",.)]`, com `r paridade_indigenas[1,abs(fem)]`% de mulheres, enquanto os níveis com menor percentual são `r tail(paridade_indigenas,1) %>% .[,nivel %>% gsub("Nível ","",.)]`, com `r tail(paridade_indigenas,1) %>% .[,abs(fem)]`%.
 
-Dentre os vínculos de indígenas, `r frase_paridade_i`. Nas demais categorias de raça/cor, `r frase_paridade_d`.
+Dentre os vínculos de indígenas, `r frase_paridade_i`. Dentre os não indígenas, por sua vez, `r frase_paridade_d`.
 
 
 ```{r piramide_niveis}
 df_funcao_total %>%
   filter(mes == dt_max_siape) %>%
   ggplot_cat(aes(x = nivel_ord,
-             # y = 100*total_funcao_adj/total,
-             y = total_funcao_adj,
-             fill = nivel_sexo)
-         ) +
+                 # y = 100*total_funcao_adj/total,
+                 y = total_funcao_adj,
+                 fill = nivel_sexo)
+             ) +
   geom_col(position = 'stack') +
   geom_hline(yintercept = 0) +
   geom_text(aes(label = total_funcao),
-            # position = position_dodge2(width = 0.8),
+             # position = position_dodge2(width = 0.8),
+            position = position_stack(vjust =  0.5),
             vjust = 0.5,
-            hjust = 0.5,
-            size = 5,
-            col = pal_primaria['principal']) +
+            hjust = 0.3,
+            size = 4,
+            # col = pal_primaria["principal"],
+            col =  "white") +
   labs(title = paste0("Quantitativo de ocupantes de cargos de liderança em ",
                       dt_max_show),
        x = "Nível CCE/FCE",
@@ -1426,11 +1545,12 @@ df_funcao_total %>%
   geom_col(position = 'stack') +
   geom_hline(yintercept = 0) +
   geom_text(aes(label = paste0(abs(p_sexo),"%")),
-            # position = position_dodge2(width = 0.8),
-            vjust = 0.5,
-            hjust = 0.5,
-            size = 5,
-            col = pal_primaria['principal']) +
+             position = position_stack(vjust =  0.5),
+             vjust = 0.5,
+             hjust = 0.5,
+             size = 4,
+             # col = pal_primaria["principal"],
+             col = "white") +
   labs(title = paste0("Percentual de ocupção de cargos de liderança por gênero em ",
                       dt_max_show),
        x = "Nível CCE/FCE",
@@ -1479,7 +1599,7 @@ frase_equidade <-
                                   paste0('apenas os níveis ',
                                          as.character(nivel_ord)%>% 
                                            gsub("Nível ","",.) ,
-                                         ' apresentou maior equidade.'
+                                         ' apresentaram maior equidade'
                                          )
                                   )
                          ),
@@ -1529,3 +1649,4 @@ ggplotly_c(serie_razao)
 
 ```
 
+<!-- </div> -->

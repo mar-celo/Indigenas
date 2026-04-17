@@ -1,8 +1,8 @@
-# ==============================================================================
+# ==============================================================================.
 # 1. CONFIGURAÇÕES INICIAIS E BIBLIOTECAS -------
-# ==============================================================================
+# ==============================================================================.
 
-
+rm(list = ls()); gc()
 # abre pacotes-------------------------------------------------------------
 
 library(dplyr)
@@ -24,9 +24,9 @@ library(geobr)
 dir.create("data",showWarnings = F)
 
 
-# ==============================================================================
+# ==============================================================================.
 # 2. CONEXÃO as fontes de dados -------
-# ==============================================================================
+# ==============================================================================.
 
 
 ### 2.1 - conexão com extração do DW (Luciana) ----
@@ -34,6 +34,47 @@ path_dados <- "C:/Users/wesley.jesus/Documents/dados_publicacoes_tematicas"
 
 df_serv <- fread(file.path(path_dados,"TODOS2.csv")) %>%
   janitor::clean_names()
+
+df_cotas <- fread(file.path(path_dados,"COTAS_ATIVOS.csv")) %>%
+  janitor::clean_names()
+
+df_cotas_ind <- fread(file.path(path_dados,"COTAS_COMINDICADOR.csv")) %>%
+  janitor::clean_names()
+
+dic_cotas <- data.table(co_tipo_cota = 0:4,
+                        no_tipo_cota =
+                          c("Não informado",
+                            "Não",
+                            "Cota Racial",
+                            "Cota PCD",
+                            "Cota Indígena"))
+# formatando datas
+df_cotas[,anomes := as.Date(dt_lotacao_serv,"%d/%m/%Y") %>% format("%Y%m")]
+df_cotas_ind[,`:=`(anomes = as.Date(dt_lotacao_serv,"%d/%m/%Y") %>% format("%Y%m"),
+                   anomes_ex = as.Date(dt_ocor_exclusao_serv,"%d/%m/%Y") %>% format("%Y%m"))]
+
+
+## aposentados e instituidores de penão
+df_situacao_ind <- fread(file.path(path_dados,"pep_conceito_servidores_indigenas.txt")) %>%
+  janitor::clean_names()
+
+
+### TESTES (EXCLUIR DEPOIS)
+
+# # checando onde tem data NA
+# df_cotas[is.na(anomes),.N,.(dt_lotacao_serv)]
+# df_cotas_ind[is.na(anomes),.N,.(dt_lotacao_serv)]
+#
+# # checando % de NA nas datas por marcador de cotas
+# df_cotas[,.(.N,
+#             n_data_na = sum(is.na(anomes)),
+#             p_data_na = 100*mean(is.na(anomes)),
+#             min_mes = min(anomes,na.rm = T),
+#             max_mes = max(anomes,na.rm = T)),.(co_tipo_cota)]
+#
+# # checando filtros
+# df_cotas[,.N,.(var_0048_qtd_serv_p,var_0001_situacao)]
+# df_cotas_ind[,.N,.(var_0048_qtd_serv_p,var_0001_situacao)]
 
 
 ### faixa etária
@@ -81,9 +122,9 @@ df_spark <- spark_read_parquet(
 
 
 
-# ==============================================================================
+# ==============================================================================.
 # 3. DATA WRANGLING (Spark + R) -------
-# ==============================================================================
+# ==============================================================================.
 df_etnia <- df_serv %>%
   group_by(mes, nome_cor_origem_etnica) %>%
   summarise(linhas = n(),
@@ -113,9 +154,9 @@ saveRDS(df_etnia,"data/df_etnia.rds")
 
 
 
-# ==============================================================================
-# 5. Tabela por UF -------
-# ==============================================================================
+# ==============================================================================.
+# 4. Tabela por UF -------
+# ==============================================================================.
 
 
 # Filtrando apenas indígenas no último mês disponível (Fev 2026)
@@ -143,9 +184,9 @@ saveRDS(df_indigenas_uf,'data/df_indigenas_uf.rds')
 saveRDS(df_mapa_final,'data/df_mapa_final.rds')
 
 
-# ==============================================================================
-# 6. piramide ------
-# ==============================================================================
+# ==============================================================================.
+# 5. piramide ------
+# ==============================================================================.
 
 # 1. Agregação no Spark
 df_piramide <-
@@ -176,9 +217,9 @@ df_piramide_indigena <- df_serv %>%
 saveRDS(df_piramide,'data/df_piramide.rds')
 saveRDS(df_piramide_indigena,'data/df_piramide_indigena.rds')
 
-# ==============================================================================
-# 7. dados Treemap ----
-# ==============================================================================
+# ==============================================================================.
+# 6. dados Treemap ----
+# ==============================================================================.
 
 
 df_escol <- df_serv %>%
@@ -213,9 +254,9 @@ df_treemap_ind <-
 saveRDS(df_treemap_ind,'data/df_treemap_ind.rds')
 
 
-# ==============================================================================
-# 8. Por órgão e tipo de órgão ------
-# ==============================================================================
+# ==============================================================================.
+# 7. Por órgão e tipo de órgão ------
+# ==============================================================================.
 
 grupos_natjur <-
   read_excel('data/tb_auxiliares.xlsx') %>%
@@ -239,9 +280,9 @@ saveRDS(df_natjur,'data/df_natjur.rds')
 saveRDS(df_orgao,'data/df_orgao.rds')
 
 
-# ==============================================================================
-# 9. Por etnia, efetivos, função, etc ------
-# ==============================================================================
+# ==============================================================================.
+# 8. Por etnia, efetivos, função, etc ------
+# ==============================================================================.
 
 ## total de efetivos
 df_efetivos <-
@@ -393,17 +434,110 @@ df_funcao_efetivos <-
 
 
 
-
-
 saveRDS(df_efetivos,'data/df_efetivos.rds')
 saveRDS(df_funcao,'data/df_funcao.rds')
 saveRDS(df_funcao_total,'data/df_funcao_total.rds')
 saveRDS(df_funcao_efetivos,"data/df_funcao_efetivos.rds")
 
+# ==============================================================================.
+# 9. Ingressos por cotas ------
+# ==============================================================================.
 
-# ==============================================================================
-# 10. fechando conexão
-# ==============================================================================
+df_cotas[,
+         .(total = .N),
+         .(mes = anomes,
+           no_cor_origem_etnica,
+           co_tipo_cota)
+         ] -> serie_ingressos
+
+df_cotas_ind[,
+             .(total = .N),
+             .(mes = anomes,
+               no_cor_origem_etnica,
+               co_tipo_cotaefetivo = !(grepl("s/(cargo|info)",no_cargo,ignore.case = T) &
+                                         grepl("s/(cargo|info)",no_cargo_origem,ignore.case = T)
+               ))
+             ] -> serie_cotas
+
+saveRDS(serie_cotas,'data/serie_cotas.rds')
+
+
+
+# full_join(
+#   df_cotas_ind[no_cor_origem_etnica == "INDIGENA",
+#                .(total_cotistas = .N),
+#                .(ano_ingresso = substr(anomes,1,4) %>% as.numeric(),
+#                  co_tipo_cota)
+#                ],
+#
+#   df_cotas[no_cor_origem_etnica == "INDIGENA",
+#            .(total_ativos_hoje = .N),
+#            .(ano_ingresso =  substr(anomes,1,4) %>% as.numeric(),
+#              co_tipo_cota)
+#            ]
+#
+#   ) %>% View
+#
+#
+#
+# df_cotas[no_cor_origem_etnica == "INDIGENA" &
+#            !is.na(anomes),
+#          .(.N),
+#          .(co_tipo_cota)] %>%
+#   .[,p := 100*N/sum(N)] %>% View
+#
+#
+# df_cotas[no_cor_origem_etnica == "INDIGENA" &
+#            !is.na(anomes),
+#          .(.N,
+#            ),
+#          .(anomes,
+#            ativo =  ] %>%
+#   filter(ativo) %>% View
+
+
+# ==============================================================================.
+# 10. Saídas por aposentadoria ------
+# ==============================================================================.
+
+df_indigenas_sit <- df_situacao_ind[,.(total = sum(v16)),
+                                    .(situacao,
+                                      efetivo = !(grepl("s/(cargo|info)",cargo,ignore.case = T) &
+                                                    grepl("s/(cargo|info)",cargo_origem,ignore.case = T)
+                                                  ),
+                                      mes.f =
+                                        mes %>%
+                                        paste0("01 ",.) %>%
+                                        tolower %>%
+                                        as.Date("%d %b %Y") %>%
+                                        format("%Y%m")
+                                      )] %>%
+  setorder(situacao,mes.f)
+
+
+# df_indigenas_sit  %>%
+#   filter(!is.na(mes.f)) %>%
+#   ggplot_cat(aes(x = as.numeric(substr(mes.f,1,4)),
+#                  y = total,
+#                  col =
+#                    paste0(
+#                      ifelse(
+#                        efetivo,
+#                        "Efetivo ",
+#                        "Não efetivo "
+#                        ),
+#                      situacao)
+#                  )
+#              ) +
+#   geom_line(size = 2) +
+#   geom_point(size = 3)
+
+
+saveRDS(df_indigenas_sit,"data/df_indigenas_sit")
+
+# ==============================================================================.
+# 10. fechando conexão -----
+# ==============================================================================.
 
 spark_disconnect(sc)
 
