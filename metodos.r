@@ -6,11 +6,11 @@
 #' @param digitos número de dígitos
 #'
 #' @return vetor com os códigos sem caracteres não numéricos, com 0's imputados à esquerda para completar
-#' o número de dígitos especificados em 'digitos' 
+#' o número de dígitos especificados em 'digitos'
 #' @export
 #'
 #' @examples
-#' 
+#'
 
 ## funções ----
 
@@ -25,7 +25,7 @@ indice_sid <- function(x){
   }
 }
 
-# função para o índice de dominância do produto principal 
+# função para o índice de dominância do produto principal
 indice_dom <- function(x){
   x_comp <- na.omit(x)
   if (length(x_comp) == 0){
@@ -81,28 +81,28 @@ trat_categorias <- function(charcol,enc_char = "UTF-8"){
 cat2flag <- function(data,key_vars,var_nm,prefix = var_nm,return_original = T,...){
   # tudo igual a 1
   data[,aux_var := 1]
-  
+
   # fórumla para o dcast na form key_vars1 + key_vars2 + ... ~ var_nm
-  dcast_formulae <- paste0(paste0(key_vars,collapse = " + ")," ~ ",var_nm) 
-  
+  dcast_formulae <- paste0(paste0(key_vars,collapse = " + ")," ~ ",var_nm)
+
   # dcast preenchendo vazios com zero
   data  %>%
     copy %>%
     # unique das variáveis envolvidas
-    select(one_of(c(key_vars,var_nm)),aux_var) %>% 
+    select(one_of(c(key_vars,var_nm)),aux_var) %>%
     # unique() %>%
     dcast(dcast_formulae,
           value.var = "aux_var",
           fill = 0,
           ...) -> data_out
-  
+
   # renomeando colunas das categorias com o prefixo estabelecido
   cast_cols <- setdiff(names(data_out),key_vars)
   new_cols <- paste0(prefix,"_",cast_cols)
   setnames(data_out,cast_cols,new_cols)
-  
+
   data[,aux_var := NULL]
-  
+
   # join com o data.frame original
   if(return_original){
     data_out <- left_join(data,data_out,by = key_vars)
@@ -116,8 +116,8 @@ cat2flag <- function(data,key_vars,var_nm,prefix = var_nm,return_original = T,..
 arrumar_registro <- function(x,digitos = 11,numeric = T){
   # passo 1: tirar caracteres não numéricos
   y <- gsub("[[:alpha:]]|[[:punct:]]|[[:space:]]","",x)
-  
-  
+
+
   if(!numeric){
     # passo 2: completar com '0' à esquerda se for menor que 'digitos', caso não queira numérico
     z <- str_pad(y,digitos, pad = '0')
@@ -134,29 +134,29 @@ arrumar_registro <- function(x,digitos = 11,numeric = T){
 #' @param x vetor com os valores monetários e/ou numéricos de qualquer natureza que se quer ajustar
 #' @param divmilhar caracter que separa os milhares. Se não houver um, manter como NULL
 #' @param dec caracter que separa os decimais. Se não houver um, manter como NULL
-#' @param negativo expressão regular que indica a representação de números negativos. 
+#' @param negativo expressão regular que indica a representação de números negativos.
 #' Se não houver, manter NULL
 #'
 #' @return retorna um vetor numérico após a limpeza e conversão para numérico
 #' @export
 #'
 #' @examples arrumar_valores(c("(R$ 222.395,350)","R$ 195.32","(R$ 20135.8)"), dec = ",",divmilhar = ".",negativo = "^\\(.*\\)$")
-limpar_valores <- function(x, 
+limpar_valores <- function(x,
                            divmilhar = NULL,
                            dec = NULL,
                            negativo = NULL) {
   # passo 1: retirar divisor de milhares, se houver
   if(!is.null(divmilhar)) x <- gsub(divmilhar,"",x, fixed = T)
-  
+
   # passo 2: substituir caracter de decimal por ".", se houver
   if(!is.null(dec)) x <- gsub(dec, ".", x, fixed = T)
-  
+
   # passo 3: detectar expressão regular onde ocorre negativo
   if(!is.null(negativo)) x <- ifelse(grepl(negativo,x),paste0("-",x),x)
-  
+
   # passo 3: tirar caracteres não numéricos
   y <- gsub("[[:alpha:]]|\\$|\\(|\\)|[[:space:]]", "", x)
-  
+
   # passo 4: retornar em formatu numérico
   as.numeric(y)
 }
@@ -165,7 +165,7 @@ limpar_valores <- function(x,
 #' verifica se cpf é válido
 #' Usa a função 'strsplit' e str_pad
 #' @param x número CPF sem caracteres não numéricos (".","-", etc.)
-#' 
+#'
 #' @return retorna TRUE se o dígito verificador do CPF é válido.
 #' @export
 #'
@@ -174,31 +174,31 @@ verifica_cpf <- function(x){
   if(nchar(x) > 11|is.na(x)){
     return(FALSE)
   }else{
-    
+
     x <- str_pad(x,11,pad='0')
     vec_sep <- as.numeric(unlist(strsplit(x,"")))
     verif_dig <- vec_sep[10:11]
     vec_sep <- vec_sep[1:9]
-    
+
     # passo 1: primeiro digito
     y <- sum(vec_sep*(10:2))
-    
+
     #resto
     y <-  y %% 11
     d1 <- ifelse(y %in% 0:1,0,11-y)
-    
+
     cpf_ok <- d1 == verif_dig[1]
-    
+
     # passo 2: segundo digito
     vec_sep <- c(vec_sep,d1)
-    
+
     z <- sum(vec_sep*(11:2))
     #resto
     z <- z %% 11
     d2 <- ifelse(z %in% 0:1,0,11-z)
-    
+
     cpf_ok <- cpf_ok & d2 == verif_dig[2]
-    
+
     return(cpf_ok)
   }
 }
@@ -208,31 +208,31 @@ verifica_cnpj <- function(x){
   if(nchar(x) > 14 | is.na(x)){
     return(FALSE)
   }else{
-    
+
     x <- str_pad(x,14,pad='0')
     vec_sep <- as.numeric(unlist(strsplit(x,"")))
     verif_dig <- vec_sep[13:14]
     vec_sep <- vec_sep[1:12]
-    
+
     # passo 1: primeiro digito
     y <- sum(vec_sep*(c(5:2,9:2)))
-    
+
     #resto
     y <-  y %% 11
     d1 <- ifelse(y %in% 0:1,0,11-y)
-    
+
     cpf_ok <- d1 == verif_dig[1]
-    
+
     # passo 2: segundo digito
     vec_sep <- c(vec_sep,d1)
-    
+
     z <- sum(vec_sep*(c(6:2,9:2)))
     #resto
     z <- z %% 11
     d2 <- ifelse(z %in% 0:1,0,11-z)
-    
+
     cpf_ok <- cpf_ok & d2 == verif_dig[2]
-    
+
     return(cpf_ok)
   }
 }
@@ -264,17 +264,17 @@ merge2wayOR <- function(d1,d2,idA,idB){
   # create index column in both data.tables
   d1[, idx1 := .I]
   d2[, idx2 := .I]
-  
+
   mAB <- c(idA, idB)
   mA <- idA
   mB <- idB
-  
+
   # inner join on idA and idB
   j1 <- d1[d2, .(idx1, idx2), on = mAB , nomatch = 0L]
   m1 <- unique(j1$idx1)
   m2 <- unique(j1$idx2)
   print('a')
-  
+
   # inner join on idA
   j2 <- d1[!(idx1 %in% m1)][d2[!(idx2 %in% m2)], .(idx1, idx2), on = mA, nomatch = 0L]
   m1 <- append(m1, unique(j2$idx1))
@@ -285,7 +285,7 @@ merge2wayOR <- function(d1,d2,idA,idB){
   m1 <- append(m1, unique(j3$idx1))
   m2 <- append(m2, unique(j3$idx2))
   print('C')
-  
+
   # combine results
   j4 <- rbindlist(
     list(
@@ -298,9 +298,9 @@ merge2wayOR <- function(d1,d2,idA,idB){
       .B = cbind(
         d1[idx1 %in% j3[, idx1]],
         d2[idx2 %in% j3[, idx2]])),
-    fill = TRUE, 
+    fill = TRUE,
     idcol = "match_on") %>% return
-  
+
 }
 
 
@@ -309,17 +309,17 @@ merge2wayOR_full <- function(d1,d2,idA,idB){
   # create index column in both data.tables
   d1[, idx1 := .I]
   d2[, idx2 := .I]
-  
+
   mAB <- c(idA, idB)
   mA <- idA
   mB <- idB
-  
+
   # inner join on idA and idB
   j1 <- d1[d2, .(idx1, idx2), on = mAB , nomatch = 0L]
   m1 <- unique(j1$idx1)
   m2 <- unique(j1$idx2)
   print('a')
-  
+
   # inner join on idA
   j2 <- d1[!(idx1 %in% m1)][d2[!(idx2 %in% m2)], .(idx1, idx2), on = mA, nomatch = 0L]
   m1 <- append(m1, unique(j2$idx1))
@@ -330,13 +330,13 @@ merge2wayOR_full <- function(d1,d2,idA,idB){
   m1 <- append(m1, unique(j3$idx1))
   m2 <- append(m2, unique(j3$idx2))
   print('C')
-  
+
   ##name ajust
-  
+
   intersect_names <- intersect(names(d1),names(d2))
   setnames(d1,intersect_names,paste0(intersect_names,"_d1"))
   setnames(d2,intersect_names,paste0(intersect_names,"_d2"))
-  
+
   # combine results
   rbindlist(
     list(
@@ -355,9 +355,9 @@ merge2wayOR_full <- function(d1,d2,idA,idB){
       d2 = cbind(
         d1[1,lapply(.SD,function(x) NA)],
         d2[!(idx2 %in% m2)])),
-    fill = TRUE, 
+    fill = TRUE,
     idcol = "match_on") %>% return
-  
+
 }
 
 
@@ -384,7 +384,7 @@ estruturar_string <- function(x, encoding = "utf8") {
 #' Title estruturar_nomes
 #' Retorna um vetor de novos nomes estruturados, sem repetição, minúsculos, sem caracter especial e com "_" no lugar de "."
 #'
-#' @param data data.frame ou data.table 
+#' @param data data.frame ou data.table
 #' @param encoding encogin da base, sendo na maiorria 'utf8', 'latin1' OU 'Windows-1252
 #'
 #' @return vetor com novos nomes padronizados
@@ -398,7 +398,7 @@ estruturar_nomes <- function(data, encoding = "utf8"){
     make.names(unique = T) %>% # repetidos são concatenados a números
     gsub(pattern = "\\.", replacement = "_") %>% # substituindo "." por "_"
     gsub(pattern = "_{2,}",replacement = "_") # tirando "_" múltilpos
-  
+
   ## retorna colunas estruturadas
   colunas_validas
 }
@@ -446,7 +446,7 @@ e_aae <- function(N, gamma,n, v = 1/4,prop = NULL, aloc = "unif",sample = F) {
       n_st <- rep((n/length(N)) %>% ceiling(),length(N))
     }
   }
-  
+
   frac_st <- n_st/N
   if(sample){
     v <- v*n_st/(n_st - 1)
@@ -464,13 +464,13 @@ n_aae <- function (N, e, gamma, v = 1/4,prop = NULL, aloc = "unif") {
   # pesos
   wh_pop  <- N/sum(N)
   z <- abs(qnorm((1-gamma)/2))
-  
+
   # # comp. fração
   # n_num <- ifelse(aloc == "otima",
   #                 sum(sqrt(v)*wh_pop)^2,
   #                 sum(v*(wh_pop^2)/wh_samp)
   # )
-  
+
   if(aloc == "prop"){
     vec_v <- v*wh_pop*(1*wh_pop)
     n_tot = sum(vec_v)*(z/e)^2
@@ -490,12 +490,12 @@ n_aac <- function(N, e, z, v, prop = F, aloc = "unif"){
 
 
 find_lat_long <- function(addr) {
-  url = paste('http://maps.google.com/maps/api/geocode/xml?address=', 
-              addr,'&sensor=false',sep='') 
-  
-  doc = xmlTreeParse(url) 
-  root = xmlRoot(doc) 
-  lat = xmlValue(root[['result']][['geometry']][['location']][['lat']]) 
+  url = paste('http://maps.google.com/maps/api/geocode/xml?address=',
+              addr,'&sensor=false',sep='')
+
+  doc = xmlTreeParse(url)
+  root = xmlRoot(doc)
+  lat = xmlValue(root[['result']][['geometry']][['location']][['lat']])
   long = xmlValue(root[['result']][['geometry']][['location']][['lng']])
   silent = T
   data.table(endereco = addr,lat,long)
@@ -512,10 +512,10 @@ find_lat_long_ex <- function(addr){
 
 
 
-lista_e <- function(x,conexao = " e "){
+lista_e <- function(x,conexao = " e ",sep_l = ", "){
   x <- unique(x)
   if(length(x) > 1){
-    y <- paste(head(x,-1),collapse = ", ")
+    y <- paste(head(x,-1),collapse = sep_l)
     z <- tail(x,1)
     paste(y,z,sep = conexao)
   }else{
@@ -532,21 +532,9 @@ prob_selec_ssu <- function(n,p,f2){
 
 
 
-lista_e <- function(x,connective = " and "){
-  x <- unique(x)
-  if(length(x) > 1){
-    y <- paste(head(x,-1),collapse = ", ")
-    z <- tail(x,1)
-    paste(y,z,sep = connective)
-  }else{
-    x
-  }
-}
-
-
 last_complete <- function(x){
   y = x
-  
+
   if(length(x) > 1){
     for(i in 2:length(x)){
       if(is.na(x[i])) y[i] <- y[i-1]
@@ -559,7 +547,7 @@ last_complete <- function(x){
 most_freq <- function(x){
   if(any(!is.na(x))){
     y = na.omit(x)
-    freqs <- table(y) 
+    freqs <- table(y)
     mode_y <- names(freqs)[which(freqs == max(freqs))]
     return(tail(y[as.character(y) %in% mode_y],1))
   }else{
@@ -583,9 +571,9 @@ knn_pessoas <- function(data_knn,
   stopifnot(is.data.table(data_knn),
             all(cols_knn %in% names(data_knn)),
             class_knn %in% names(data_knn))
-  
+
   data_knn <- data_knn %>% copy
-  
+
   # padronizando as variáveis (score z)
   cols_knn_pad <- paste0(cols_knn,"_pad")
   data_knn[,c(cols_knn_pad) := lapply(.SD,
@@ -593,9 +581,9 @@ knn_pessoas <- function(data_knn,
                                         (x - min(x,na.rm = T))/(max(x,na.rm = T) - min(x,na.rm = T))
                                       }),
            .SDcols = cols_knn]
-  
+
   # indicador de .NA
-  data_knn[,obs_compl := complete.cases(data_knn %>% 
+  data_knn[,obs_compl := complete.cases(data_knn %>%
                                           select(
                                             one_of(
                                               c(cols_knn,
@@ -603,18 +591,18 @@ knn_pessoas <- function(data_knn,
                                             )
                                           )
   )]
-  
-  
+
+
   ### training X test data
   if(is.null(app_data)){
     set.seed(6516)
-    data_knn_training <- 
-      data_knn %>% 
+    data_knn_training <-
+      data_knn %>%
       split(by = "int_rel_dist") %>%
       lapply(sample_frac,size = (1-prop_test)) %>%
       rbindlist
     data_knn_test <- setdiff(data_knn,data_knn_training)
-    
+
     cat(
       paste0("\n\n ",
              data_knn[,sum(!obs_compl)],
@@ -628,19 +616,19 @@ knn_pessoas <- function(data_knn,
     )
   }else{
     stopifnot(is.data.table(app_data))
-    
+
     data_knn_training <- data_knn
     app_data <- app_data %>% copy
-    
+
     # padronizando variáveis, mas no test data fornecido
     app_data[,c(cols_knn_pad) := lapply(.SD,
                                         function(x){
                                           (x - min(x,na.rm = T))/(max(x,na.rm = T) - min(x,na.rm = T))
                                         }),
              .SDcols = cols_knn]
-    
+
     # indicador de .NA no test data fornecido
-    app_data[,obs_compl := complete.cases(app_data %>% 
+    app_data[,obs_compl := complete.cases(app_data %>%
                                             select(
                                               one_of(
                                                 c(cols_knn,
@@ -650,38 +638,38 @@ knn_pessoas <- function(data_knn,
     )]
     data_knn_test <- app_data
   }
-  
-  
+
+
   # >> rodando o knn nos datasets completos----
-  
+
   if(incomp_sep){
     # training completo
     data_knn_training_comp <-
       data_knn_training %>%
       subset(obs_compl) %>%
-      select(one_of(cols_knn)) 
-    
+      select(one_of(cols_knn))
+
     # test completo
     data_knn_test_comp <-
       data_knn_test %>%
       subset(obs_compl)
-    
+
     # test imcompleto
-    data_knn_test_incomp <- 
+    data_knn_test_incomp <-
       data_knn_test %>%
       subset(!obs_compl)
-    
+
     # classes do training completo
     class_knn.df <-
       data_knn_training %>%
       subset(obs_compl) %>%
-      select(one_of(class_knn)) %>% 
-      data.frame 
-    
+      select(one_of(class_knn)) %>%
+      data.frame
+
     if(is.null(nb)) nb <- ceiling(sqrt(NROW(data_knn_training_comp))/2)
-    
-    knn_assess <- 
-      class::knn(train = data_knn_training_comp %>% 
+
+    knn_assess <-
+      class::knn(train = data_knn_training_comp %>%
                    data.frame ,
                  test  = data_knn_test_comp  %>%
                    select(one_of(cols_knn)) %>%
@@ -696,10 +684,10 @@ knn_pessoas <- function(data_knn,
     data_knn_test_incomp <- data_knn_test %>% copy
     data_knn_test_comp <- setdiff(data_knn_test,data_knn_test_incomp)
   }
-  
+
   # >> rodando o knn nos datasets incompletos----
-  
-  knn_core <- 
+
+  knn_core <-
     CoreModel(
       as.formula(
         paste0(
@@ -711,75 +699,75 @@ knn_pessoas <- function(data_knn,
       data = data_knn_training,
       model = "knnKernel"
     )
-  
+
   knn_eval_test <- predict(knn_core,data_knn_test_incomp)
   data_knn_test_incomp$tipo_par_prev <- knn_eval_test$class
   data_knn_test_incomp$tipo_par_prob <- knn_eval_test$probabilities %>% apply(1,max)
-  
+
   ## juntando as duas partes
   data_knn_test <- list(data_knn_test_comp,
                         data_knn_test_incomp) %>% rbindlist(fill = T)
-  
+
   ## resultados
   if(print_results & is.null(app_data)){
-    
+
     cat(
       paste0("\n\n kNN uses ",nb," neighbors.")
     )
-    
+
     if(incomp_sep){
       res_comp <- data_knn_test_comp[,100*mean(tipo_par != tipo_par_prev)]
       cat(paste0("\n\n",
                  "Nos dados completos, há ",
                  res_comp %>% formatar_num(2),
                  "% de erro de classificação.\n"))
-      
+
       res_incomp <- data_knn_test_incomp[,100*mean(tipo_par != tipo_par_prev)]
       cat(paste0("\n\n",
                  "Nos dados incompletos, há ",
                  res_incomp %>% formatar_num(2),
                  "% de erro de classificação"))
-      
-      
+
+
       data_knn_test[,list(freq = .N),
                     by = c("obs_compl","tipo_par","tipo_par_prev")] %>%
         dcast(obs_compl + tipo_par ~ tipo_par_prev,
               value.var = "freq",
-              fill = 0) %>% 
+              fill = 0) %>%
         knitr::kable(caption = "Cross validation - dados completos X incompletos") %>%
         print
-      
-      
+
+
     }
-    
+
     res_total <- data_knn_test[,100*mean(tipo_par != tipo_par_prev)]
     cat(paste0("\n\n",
                "Em todo o test data, há ",
                res_total %>% formatar_num(2),
                "% de erro de classificação.\n\n"))
-    
+
     data_knn_test[,list(freq = .N),
                   by = c("tipo_par","tipo_par_prev")] %>%
       dcast(tipo_par ~ tipo_par_prev,
             value.var = "freq",
             fill = 0) %>%  knitr::kable(caption = "Cross validation - todo o test data.") %>%
       print
-    
-    
+
+
     data_knn_test[,diff_class := tipo_par != tipo_par_prev]
     base_plot <- data_knn_test %>%
       ggplot(aes(y = tipo_par_prob))
-    
+
     plot1 <- base_plot + geom_boxplot(aes(x = tipo_par_prev))
-    
+
     plot2 <- base_plot + geom_boxplot(aes(x = tipo_par))
-    
+
     plot3 <- base_plot + geom_boxplot(aes(x = diff_class))
-    
+
     gridExtra::grid.arrange(plot1,plot2,plot3,ncol = 1)
-    
-  } 
-  
+
+  }
+
   return(data_knn_test)
 }
 
@@ -798,10 +786,10 @@ dtm2dt <- function(dtm,
                    tf_idf = T,
                    name_iddoc = NULL){
   dtm_mt <- as.matrix(dtm)
-  dt_tb <- data.table(dtm_document = rownames(dtm),dtm_mt) 
-  
+  dt_tb <- data.table(dtm_document = rownames(dtm),dtm_mt)
+
   if(transpose){
-    dt_tb <- 
+    dt_tb <-
       dt_tb %>%
       melt(id.vars = "dtm_document",
            value.name = "freq",
@@ -811,18 +799,18 @@ dtm2dt <- function(dtm,
       dt_tb <- dt_tb %>% subset(freq > 0) # excluding zeros
     }
     if(tf_idf){
-      dt_tb <- 
-        dt_tb %>% 
+      dt_tb <-
+        dt_tb %>%
         .[,p_freq := freq/sum(freq), by = dtm_document] %>% # % frequency
         .[,term_docs := sum(freq > 0), by = term] %>%  # number of documents containing each term
         .[,idf := log(length(unique(dtm_document))/term_docs,2)] %>% # idf
         .[,`:=`(tfidf = freq*idf,
-                tfidf_p = p_freq*idf)] # and, finally, tf_idf, both normalized and non-normalized 
+                tfidf_p = p_freq*idf)] # and, finally, tf_idf, both normalized and non-normalized
     }
-    
+
   }
-  
-  
+
+
   if(!is.null(name_iddoc)){
     setnames(dt_tb,"dtm_document",name_iddoc)
   }
@@ -833,7 +821,7 @@ dtm2dt <- function(dtm,
 # Função seleciona PCA's que explicam 100Xp% das variáveis
 reduct_pca <- function(pca_obj,p){
   # selecionando núm. de PC (= 75% da variância)
-  k_pca <- 
+  k_pca <-
     min(which(
       cumsum(pca_obj$sdev^2/sum(pca_obj$sdev^2)) >= p)
     )
@@ -861,43 +849,43 @@ max_data <- function(x){
 
 ## função retorna grafos tcm e grafos
 tcm_grafos <- function(dt){
-  
-  
+
+
   tokens_lgbt = space_tokenizer(dt)
-  
+
   # Create vocabulary. Terms will be unigrams (simple words).
   it_lgbt = itoken(tokens_lgbt, progressbar = FALSE)
   vocab_lgbt = create_vocabulary(it_lgbt,ngram = c(1L,2L))
   vocab_lgbt = prune_vocabulary(vocab_lgbt, term_count_min = 3L)
-  
-  
+
+
   # Use our filtered vocabulary
   vectorizer_lgbt = vocab_vectorizer(vocab_lgbt)
-  
+
   # use window of 5 for context words (TCM = term-co-occurrence matrix)
   tcm_lgbt = create_tcm(it_lgbt, vectorizer_lgbt, skip_grams_window = 10L)
-  
+
   # verificando 20 palavras com maior TCM para cada termo identidade lgbtqia+
   lapply(occor_lgbt %>%
            gsub(" ","_",.),
          function(x)try(tcm_lgbt[x,] %>% sort(decreasing = T) %>% head(20))) -> lgbt_20tcm
   names(lgbt_20tcm) <- occor_lgbt
   lgbt_20tcm
-  
+
   # verificando 20 palavras com maior TCM para cada termo lgbtfobia
   lapply(occor_lgbtfobia %>%
            gsub(" ","_",.),function(x)try(tcm_lgbt[x,] %>% sort(decreasing = T) %>% head(20))) -> lgbtfobia_20tcm
   names(lgbtfobia_20tcm) <- occor_lgbtfobia
   lgbtfobia_20tcm
-  
+
   # verificando 20 palavras com maior TCM para cada termo ofensivo
   lapply(occor_ofensas %>%
            gsub(" ","_",.),function(x)try(tcm_lgbt[x,] %>% sort(decreasing = T) %>% head(20))) -> ofensas_20tcm
   names(ofensas_20tcm) <- occor_ofensas
   ofensas_20tcm
-  
+
   # data.frame com os links entre a palavra e os 20 maiores TCM
-  list_links_tcm <- 
+  list_links_tcm <-
     lapply(ls(pattern = "20tcm$"),function(x){
       list_tcm <- get(x) %>% unlist
       tudo_errado <- lapply(list_tcm,inherits, what = 'try-error') %>% all()
@@ -908,19 +896,19 @@ tcm_grafos <- function(dt){
                    group = x) %>%
           na.omit() %>%
           filter(value > 0)
-        
-        
+
+
       }else{
         NULL
-      }    
+      }
     })
-  
+
   links_tcm <- list_links_tcm %>% rbindlist(fill = T) %>% na.omit() %>% unique()
-  
+
   # apply(dtm_lgbt_no_os %>% as.matrix,2,sum) -> vocab_dtm
-  
+
   # data.frame com as frequências dos termos
-  list_nodes_tcm <- 
+  list_nodes_tcm <-
     lapply(list_links_tcm,function(ltcm){
       all_nodes <- c(ltcm$from,ltcm$to) %>% unique
       nodes_tcm <- data.table(nodes_x = all_nodes,
@@ -932,14 +920,14 @@ tcm_grafos <- function(dt){
     })
   nodes_tcm <- rbindlist(list_nodes_tcm,fill  = T) %>% select(-ingroup) %>% unique()
   nodes_tcm[,ingroup := as.numeric(nodes_x %in% links_tcm$from)]
-  
+
   # visualizando links
   # formato de rede (função 'network')
   pinf_net2 <- graph_from_data_frame(d = links_tcm ,
                                      vertices = nodes_tcm  ,
                                      directed = F)
-  
-  list_pinf_net2  <- 
+
+  list_pinf_net2  <-
     lapply(1:length(list_links_tcm),function(i){
       li_tcm <- list_links_tcm[[i]]
       no_tcm <- list_nodes_tcm[[i]]
@@ -973,7 +961,7 @@ split_assunto <- function(dt,id_cols = NULL){
     .[,cod_assunto := gsub("\\{|\\}",'',cod_assunto) %>% as.integer]  %>%
     left_join(assunto %>% select(id,nome,nome_completo),
               by = c("cod_assunto" = "id"))
-  
+
   # captando a matéria principal
   b2_assunto.dt[,materia := gsub("\\|.*",
                                  "",
@@ -997,7 +985,7 @@ split_classe <- function(dt,id_cols = NULL){
     .[,cod_classe := gsub("\\{|\\}",'',cod_classe) %>% as.integer]  %>%
     left_join(classe %>% select(id,nome,nome_completo),
               by = c("cod_classe" = "id"))
-  
+
   # captando a matéria principal
   b2_classe.dt[,materia := gsub("\\|.*","",nome_completo,ignore.case = T)]
   b2_classe.dt
@@ -1013,32 +1001,32 @@ outlier_kd <- function(x){
 }
 # função de limpeza de um corpus
 limpa_cp <- function(cp,more_stop = character(0)){
-  cp  %>% 
-    
+  cp  %>%
+
     # tudo em letras minúsculoas
-    tm_map(content_transformer(tolower)) %>% 
-    
+    tm_map(content_transformer(tolower)) %>%
+
     # removendo pontuação
-    tm_map(removePunctuation) %>% 
-    
+    tm_map(removePunctuation) %>%
+
     # removendo números
     # tm_map(removeNumbers)
-    
+
     # removendo acentuação
     tm_map(content_transformer(function(x){
       iconv(x,"utf8","ASCII//TRANSLIT")
     })) %>%
-    
+
     # removendo "'"
     tm_map(content_transformer(function(x){
       gsub("\'","",x)
     })) %>%
-    
+
     # removendo 'stopwords'
     tm_map(removeWords,c(stopwords("pt"),
                          more_stop)
-           ) %>% 
-    
+           ) %>%
+
     # removendo espaço em branco extra
     tm_map(stripWhitespace)
 
@@ -1048,32 +1036,32 @@ limpa_cp <- function(cp,more_stop = character(0)){
 # função de limpeza de vetor de caracterers
 limpa_txt <- function(txt,more_stop = character(0)){
   txt %>%
-    
+
     # tudo em letras minúsculoas
-    tolower %>% 
-    
+    tolower %>%
+
     # removendo pontuação
-    removePunctuation %>% 
-    
+    removePunctuation %>%
+
     # removendo números
     # tm_map(removeNumbers)
-    
+
     # removendo acentuação
     iconv("utf8","ASCII//TRANSLIT") %>%
-    
+
     # removendo "'"
     gsub("\'","",.) %>%
-    
+
     # removendo 'stopwords'
     removeWords(c(stopwords("pt"),
-                  more_stop)) %>% 
-    
+                  more_stop)) %>%
+
     # removendo espaço em branco extra
-    stripWhitespace %>% 
-    
+    stripWhitespace %>%
+
     # removendo espaços em branco no início e no fim
     str_trim()
-    
+
 }
 
 
@@ -1098,7 +1086,7 @@ abrir_arquivo_dir <- function(dir,nm){
 wrd_substr <- function(txt,ini, fim){
   str_split(txt,boundary('word')) %>%
     unlist %>%
-    substr(ini,fim) %>% 
+    substr(ini,fim) %>%
     paste0(collapse = " ") -> tyt
   return(tyt)
 }
@@ -1106,10 +1094,10 @@ wrd_substr <- function(txt,ini, fim){
 
 # função para quebra de textos em gráficos (chatGPT)
 quebra_texto2 <- function(texto, largura_max = 40, aplicar_se_maior = 40) {
-  
+
   if (nchar(texto) <= aplicar_se_maior) {
     return(texto)
   }
-  
+
   return(paste(strwrap(texto, width = largura_max), collapse = "\n"))
 }

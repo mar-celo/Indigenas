@@ -1,14 +1,16 @@
 ---
-title: "Análise da representatividade Indígena na Administração Pública Federal"
-# subtitle: "Análise da representatividade Indígena (2016-2026)"
+title: "Representatividade Indígena na Administração Pública Federal"
 author: "CGINF/DIGID/SGP/MGI"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+always_allow_html: true
 output:
   html_document:
     self-contained: true
     toc: true
-    css: styles-2.css
-    # css: css_gabriel.css
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+    css: "styles-2.css"
+  word_document:
+    toc: true
+    reference_docx: model_ref3_edit.docx
 ---
 
 ```{r setup, message=FALSE, warning=FALSE,echo = F}
@@ -39,6 +41,7 @@ library(tidyr)
 library(echarts4r)
 library(DT)
 library(crosstalk)
+library(flextable)
 
 # Configuração de fontes para estética TidyTuesday
 # font_add_google("Roboto Condensed", "roboto")
@@ -50,7 +53,7 @@ library(crosstalk)
 source('../setup_rmd.R')
 source('../metodos.r')
 
-
+# função para ajustar legendas do plotly
 ggplotly_c <- function(gg_obj){
   seen <- c()
   ptly_obj <- ggplotly(gg_obj)
@@ -70,6 +73,17 @@ ggplotly_c <- function(gg_obj){
   ptly_obj
   }
 
+# função para configuração do flextable
+flextable_c <- function(...){
+  flextable(...) %>%
+  bg(part = 'header',bg = pal_primaria[1]) %>%
+  color(part = "header", color = "white") %>%
+  colformat_num(big.mark = ".", decimal.mark = ",", digits = 0) %>%
+  colformat_double(digits = 1, suffix = "%", decimal.mark = ",")
+}
+
+# para identificar o formato de saída
+is_html <- knitr::is_html_output()
 ```
 
 <style type="text/css">
@@ -147,6 +161,7 @@ df_etnia <- readRDS('../data/df_etnia.rds') %>% setDT
 dt_range <- df_etnia[,range(data)] 
 dt_max_siape <- df_etnia[,max(mes)]
 dt_max_show <- dt_range[2] %>% format("%B/%Y") %>% str_to_title()
+dt_max_graph <- dt_range[2] %>% format("%b/%Y") %>% str_to_title()
 ```
 
 
@@ -167,7 +182,7 @@ dados_tabela <- df_etnia %>%
 
 Em `r dt_max_show`, a Administração Pública Federal (APF) contava com um total de `r dados_tabela[nome_cor_origem_etnica == 'INDIGENA',n %>% formatar_num(0)]` vínculos ativos de pessoas que se autodeclaram como indígenas, o que representa `r dados_tabela[nome_cor_origem_etnica == 'INDIGENA',formatar_num(100*pct,2)]`% do total de ativos, conforme representado na Tabela a seguir.
 
-```{r react}
+```{r react, eval = is_html}
 reactable(
   dados_tabela,
   pagination = FALSE,
@@ -227,6 +242,29 @@ reactable(
 )
 ```
 
+```{r flext, eval = !is_html}
+
+
+dados_tabela %>%
+  copy() %>%
+  .[,pct := 100*pct] %>%
+  setnames(
+    c("Cor/Origem Étnica",
+      "Total de Vínculos",
+      "Participação (%)")
+  ) %>%
+  flextable_c(
+    cwidth = 1.5
+  ) %>%
+  bg(i = ~ grepl("IND.GENA",`Cor/Origem Étnica`,ignore.case = T), 
+     bg = pal_primaria['ponto']) 
+
+# no flextable, Se for INDIGENA pintar fundo de laranja 
+
+# flextable pintar título com fundo azul e letras brancas 
+```
+
+
 ```{r tab_serie_historica}
 df_indigena_mes <- 
   df_etnia %>% 
@@ -272,8 +310,7 @@ codf <- df_indigena_mes[mes == dt_max_siape, max(n)/max(pct)]
 # 4. Construção do gráfico
 txt_size <- 30 
 ggplot_cat(df_indigena_mes,
-           aes(x = data)
-) +
+           aes(x = data)) +
   
   # Linhas para todas as categorias
   geom_line(aes(y = pct*codf,
@@ -300,7 +337,7 @@ ggplot_cat(df_indigena_mes,
   # Etiqueta de texto direta
   geom_text(data = label_final, 
             aes(y = n,
-                label = paste0(dt_max_show,":\n",n," (",pct, "%)")),
+                label = paste0(dt_max_graph,":\n",n," (",pct, "%)")),
             # hjust = -8,
             # vjust = 3,
             family = "roboto", 
@@ -318,7 +355,12 @@ ggplot_cat(df_indigena_mes,
   )   -> serie_indigenas
 
 # serie_indigenas
-ggplotly_c(serie_indigenas)
+if(is_html){
+  ggplotly_c(serie_indigenas)
+}else{
+  serie_indigenas
+}
+
 ```
 
 
@@ -335,7 +377,7 @@ df_indigenas_3 <- df_indigenas_uf %>% setorder(-pct_indigenas) %>% head(3)
 ``` 
 
 
-As unidades de federação com maior presença de indígenas nos órgãos da APF são `r df_indigenas_3[,lista_e(uf," e ")]`. Em cada uma destas UF, `r df_indigenas_3[,lista_e(paste0(pct_indigenas,"%")," e ")]` dos vínculos, respectivamente, são exercidos por pessas desta etnia.
+As Unidades Federativas (UFs) com maior presença de indígenas nos órgãos da APF são `r df_indigenas_3[,lista_e(uf," e ")]`. Em cada uma destas UF, `r df_indigenas_3[,lista_e(paste0(pct_indigenas,"%")," e ")]` dos vínculos, respectivamente, são exercidos por pessas desta etnia.
 
 
 
@@ -350,13 +392,13 @@ df_indigenas_uf %>%
             position = position_nudge(x = 0.1),
             hjust = -0.2, 
             face = "bold",
-            col = "#FF7800",
+            col = pal_primaria['ponto'],
             family = "roboto", 
             size = 3.5,
             show.legend = F) +
   labs(
-    title = "Representatividade de Vínculos Indígenas nas UFs",
-    subtitle = "Total de Vínculos ativos (Fev/2026)",
+    title = paste0("Representatividade de Vínculos Indígenas nas UFs, ",dt_max_graph),
+    # subtitle = "Total de Vínculos ativos (Fev/2026)",
     x = "Percentual",
     y = NULL
   ) + #-> plot_uf
@@ -375,7 +417,11 @@ df_indigenas_uf %>%
     # plot.margin = margin(20, 30, 20, 20) 
   ) -> plot_uf
 
-ggplotly_c(plot_uf)
+if(is_html){
+  ggplotly_c(plot_uf)
+  }else{
+    plot_uf
+  }
 ```
 
 
@@ -394,16 +440,19 @@ df_orgao[,`:=`(
   select(nome_orgao_vinc,no_orgao,total_orgao,total,pct_indigena) -> df_orgao_ind
 
 
-df_orgao3 <- head(df_orgao_ind,5)
-```
+df_orgao3 <- head(df_orgao_ind,2)
 
 
-Ao analisar a presença de indígenas por órgão, a tabela a seguir aponta  `r df_orgao3[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")") %>% lista_e(" e ")]` como aqueles em que há maior presença de indígenas com relação ao total de vínculos, cerca de `r df_orgao3[,lista_e(paste0(pct_indigena,"%")," e ")]`, repectivamente. Juntos, estes órgãos contam com `r df_orgao3[,sum(total_orgao)] %>% formatar_num(0)` vínculos, sendo que `r df_orgao3[,100*sum(total)/sum(total_orgao)] %>% formatar_num(1)`% são de pessoas indígenas. Por outro lado, estes mesmo órgãos concentram `r formatar_num(100*df_orgao3[,sum(total)]/df_orgao_ind[,sum(total)],1)`% dos vínculos ativos de indígenas.
-
-```{r dt_indigena_orgao}
+# domínio de cores para as tabelas
 dom_pct_ind <- df_orgao_ind$pct_indigena
 col_pct <- col_numeric(palette = c("white",pal_primaria['principal']),
                        domain =dom_pct_ind )
+```
+
+
+Ao analisar a representatividade de indígenas em cada órgão, a tabela a seguir aponta  `r df_orgao3[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")",", com ",pct_indigena,"%") %>% lista_e(sep_l = "; ")]` como aqueles em que há maior presença de indígenas com relação ao total de vínculos. Juntos, estes órgãos contam com `r df_orgao3[,sum(total_orgao)] %>% formatar_num(0)` vínculos, sendo que `r df_orgao3[,100*sum(total)/sum(total_orgao)] %>% formatar_num(1)`% são de pessoas indígenas. Por outro lado, estes mesmo órgãos concentram `r formatar_num(100*df_orgao3[,sum(total)]/df_orgao_ind[,sum(total)],1)`% dos vínculos ativos de indígenas.
+
+```{r dt_indigena_orgao, eval = is_html}
 
 
 
@@ -427,7 +476,7 @@ dt2 <- df_orgao_ind %>%
                     text-align: left;
                     font-size: 24px;
                     color: #0000AA;",
-                    "Por órgão vinculado"
+                    "Por órgão"
                     )
                 ) %>%
   formatStyle(
@@ -441,6 +490,45 @@ dt2 <- df_orgao_ind %>%
 dt2
 ```
 
+
+
+```{r flext_indigena_orgao, eval = !is_html}
+nshow <- 6
+df_orgao_ind %>%
+  copy %>%
+  head(nshow) %>%
+  setnames(
+    c("Órgão vinculado",
+      "Sigla do Órgão",
+      "Total de vínculos",
+      "Total de vínculos de indígenas",
+      "Participação (%) de indígenas no órgão")) %>%
+  flextable_c(
+    cwidth = 1.2
+  ) %>%
+  flextable::set_caption(
+    caption =
+      as_paragraph(
+        as_chunk(
+        paste0("Órgãos com maior percentual de indígenas\n(",
+               nshow," órgãos com maior representatividade)"),
+        props =  officer::fp_text(
+          color = pal_primaria[1],
+          font.size = 14,
+          bold = TRUE)
+        )
+        ),
+    # fontfamily = "title_font",
+    # color = pal_primaria[1],
+    # size = 24,
+    # bold = TRUE,
+    align_with_table = TRUE
+  )   %>%
+  bg(
+    bg = col_pct,
+    j = "Participação (%) de indígenas no órgão",
+    part = "body")
+```
 
 # Perfil dos vínculos ativos de indígenas
 
@@ -490,7 +578,7 @@ df_piramide_indigena[,`:=`(init_idade =
 ```
 
 
-O conjunto de vínculos ativos de indígenas é composto por `r df_piramide_indigena[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`% de mulheres. Considerando a APF como um todo, este percntual é de `r df_piramide[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`%
+O conjunto de vínculos ativos de indígenas é composto por `r df_piramide_indigena[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`% de mulheres. Considerando todos os servidores da APF, este percentual é de `r df_piramide[,100*sum(total*(nome_sexo == "Fem"))/sum(total)] %>% formatar_num(2)`%
 
 
 Quanto à idade, `r df_piramide_indigena[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% dos indígenas na APF têm até 40 anos e `r df_piramide_indigena[,100*sum(total*(init_idade >= 65 ))/sum(total)] %>% formatar_num(2)`% estão acima dos 65. Estes percenutais em toda a APF são, respectivamente, `r df_piramide[,100*sum(total*(fim_idade <= 40 ))/sum(total)] %>% formatar_num(2)`% e `r df_piramide[,100*sum(total*(init_idade >= 65 ))/sum(total)] %>% formatar_num(2)`%
@@ -512,8 +600,8 @@ pir_indigena <-
                                                  decimal.mark = ",")) +
   scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
   labs(
-    title = "Vínculos Indígenas",
-    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
+    title = paste0("Vínculos Indígenas, ",dt_max_graph),
+    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_graph,")"),
     x = "Faixa Etária",
     y = "Quantidade"
   ) +
@@ -526,13 +614,6 @@ pir_indigena <-
     legend.position = "bottom"
   )
 
-pir_indigena <- ggplotly(pir_indigena) %>%
-  plotly::layout(legend = list(x = 0.45,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
 
 # Pirâmide federais
 pir_federais <- 
@@ -547,27 +628,36 @@ pir_federais <-
                                                  decimal.mark = ",")) +
   scale_fill_manual(values = c("Fem" = "#FF7800", "Mas" = "#0000aa"), name = "Sexo") +
   labs(
-    title = "Total de Vínculos",
-    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_show,")"),
+    title = paste0("Total de Vínculos, ",dt_max_graph),
+    subtitle = paste0("Distribuição por faixa etária e sexo (",dt_max_graph,")"),
     x = "Faixa Etária",
     y = "Quantidade"
   ) +
   plot_config
 
-pir_federais <- ggplotly(pir_federais) %>%
-  plotly::layout(legend = list(x = 0.50,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
 
 
-bscols(pir_federais,
-       pir_indigena,
-       widths = c(6,6),
-       device = "sm"
-       )
+if(is_html){
+  bscols(ggplotly(pir_federais) %>%
+           plotly::layout(legend = list(x = 0.50,
+                                        y = 0,
+                                        xanchor = "center",
+                                        yanchor = "upper",
+                                        orientation = "h")
+                          ),
+         ggplotly(pir_indigena) %>%
+           plotly::layout(legend = list(x = 0.45,
+                                        y = 0,
+                                        xanchor = "center",
+                                        yanchor = "upper",
+                                        orientation = "h")
+                          ),
+         widths = c(6,6),
+         device = "sm")
+  }else{
+    print(pir_federais)
+    print(pir_indigena)
+  }
 
 ```
 
@@ -594,7 +684,7 @@ pal_complementar.f <- pal_complementar[order(df_treemap_ind$nome_escolaridade.f)
 ``` 
 
 
-A figura a seguir apresenta a distribuição de vínculos que se autodeclaram indígenas segundo a escolaridade. Cerca de `r df_treemap_ind[nome_escolaridade.f >= 'Pós-Graduação',sum(total)] -> esc_i;formatar_num(esc_i,0)` indígenas, `r df_treemap_ind[,sum(total)] -> esc_t;formatar_num(100*esc_i/esc_t,1)`% do total, possuem pelo menos a pós-graduação. Considerando toda a APF, este percentual é de `r (df_treemap[nome_escolaridade.f >= 'Pós-Graduação',100*sum(total)]/sum(df_treemap$total)) %>% formatar_num(1)`%.
+A figura a seguir apresenta a distribuição de vínculos que se autodeclaram indígenas segundo a escolaridade. Cerca de `r df_treemap_ind[nome_escolaridade.f >= 'ENSINO SUPERIOR',sum(total)] -> esc_i;formatar_num(esc_i,0)` indígenas, `r df_treemap_ind[,sum(total)] -> esc_t;formatar_num(100*esc_i/esc_t,1)`% do total, possuem nível superior ou maior. Considerando todos os servidores da APF, este percentual é de `r (df_treemap[nome_escolaridade.f >= 'ENSINO SUPERIOR',100*sum(total)]/sum(df_treemap$total)) %>% formatar_num(1)`%.
 
 ```{r treemap_indigena}
 # ==============================================================================
@@ -631,8 +721,8 @@ ggplot(df_treemap_ind, aes(area = total,
   scale_fill_discrete(palette = pal_complementar.f) +
   
   labs(
-    title = "Distribuição de Escolaridade: Vínculos INDÍGENAS",
-    subtitle = paste0("Análise por Nível de Instrução e Região Política (",dt_max_show,")"),
+    title = paste0("Distribuição de Escolaridade: Vínculos INDÍGENAS, ",dt_max_graph),
+    subtitle = paste0("Análise por Nível de Instrução e Região Política (",dt_max_graph,")"),
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
     fill = "Escolaridade"
   ) + 
@@ -655,7 +745,7 @@ treemap_escol
 ```
 
 
-## Órgão de vinculo
+## Órgão de Vínculo
 
 <!-- ## Natureza jurídica do órgão -->
 
@@ -680,10 +770,10 @@ pico_natjur <- df_natjur_ind_max[which.max(pct)]
 ```
 
 
-Em `r dt_max_show`, a maior parte dos vínculos de indígenas, `r formatar_num(max_natjur$pct,1)`%, estavam em órgãos de `r max_natjur$nome_natureza_juridica_cnnj`. Essa categoria apresentou seu menor percentual em `r vale_natjur$ano`, com `r vale_natjur$pct %>% formatar_num(1)`% dos ingígenas, e seu valor máximo em `r pico_natjur$ano`, com `r pico_natjur$pct %>% formatar_num(1)`%.
+Em `r dt_max_show`, a maior parte dos vínculos de indígenas, `r formatar_num(max_natjur$pct,1)`%, estavam em órgãos de `r max_natjur$nome_natureza_juridica_cnnj`. Essa categoria apresentou seu menor percentual em `r vale_natjur$ano`, com `r vale_natjur$pct %>% formatar_num(1)`% dos indígenas, e seu valor máximo em `r pico_natjur$ano`, com `r pico_natjur$pct %>% formatar_num(1)`%.
 
 
-```{r grafico_echarts_natjur}
+```{r grafico_echarts_natjur,eval = FALSE}
 df_grafico <- df_natjur[nome_cor_origem_etnica == 'INDIGENA',
                         .(total = sum(total)),
                         .(data = as.Date(paste0(ano,'0101'),"%Y%m%d"),
@@ -742,11 +832,16 @@ ggplot_cat(df_grafico,
   scale_x_continuous(breaks =
                        seq(min(df_grafico$ano),
                            max(df_grafico$ano))) + 
-  labs(y = "Percentual dentre os indígenas",
+  labs(title = paste0("Natureza Jurídica do Órgão, ",dt_max_graph),
+       y = "Percentual dentre os indígenas",
        x = "Ano",
        fill = "Natureza jurídica") -> natjur_plot
 
-ggplotly_c(natjur_plot)
+if(is_html){
+  ggplotly_c(natjur_plot)
+}else{
+  natjur_plot
+}
   
 ```
 
@@ -759,25 +854,28 @@ setorder(df_orgao_ind,-share_ind)
 
 
 df_orgao3_share <- head(df_orgao_ind,4)
+
+
+# domínio de cores para as tabelas
+dom_share_ind <- df_orgao_ind$share_ind
+col_share <- col_numeric(palette = c("white",pal_primaria['principal']),
+                         domain = dom_share_ind )
 ```
 
 
-Ao analisar a distribuição de indígenas por órgão, a tabela a seguir aponta  `r df_orgao3_share[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")") %>% lista_e(" e ")]` como aqueles em que os vínculos de indígenas estão mais concentrados, responsável por `r formatar_num(df_orgao3_share[,sum(share_ind)],1)`% dos vínculos ativos de indígenas.
+Ao analisar a distribuição de indígenas por órgão, a tabela a seguir aponta  `r df_orgao3_share[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")") %>% lista_e(" e ")]` como aqueles em que os vínculos de indígenas estão mais concentrados, responsáveis por `r formatar_num(df_orgao3_share[,sum(share_ind)],1)`% dos vínculos ativos de indígenas.
 
-```{r percentuais_orgao}
+```{r dt_percentuais_orgao, eval = is_html}
 ## Distribuição de indígenas por órgão
 
 
 
-dom_share_ind <- df_orgao_ind$share_ind
-col_share <- col_numeric(palette = c("white",pal_primaria['principal']),
-                         domain = dom_share_ind )
 
 dt3 <- df_orgao_ind %>%
   copy() %>% 
   select(-pct_indigena) %>%
-  setnames(c("Órgão vinculado",
-             "Sigla do Órgão",
+  setnames(c("Sigla do Órgão",
+             "Órgão vinculado",
              "Total de vínculos",
              "Total de vínculos de indígenas",
              "Percentual dos indígenas vinculados ao órgão")) %>%
@@ -794,7 +892,7 @@ dt3 <- df_orgao_ind %>%
                     text-align: left;
                     font-size: 24px;
                     color: #0000AA;",
-                    "Por órgão vinculado"
+                    "Por órgão"
                     )
                 ) %>%
   formatStyle(
@@ -808,6 +906,43 @@ dt3 <- df_orgao_ind %>%
 dt3
 ```
 
+```{r flext_percentuais_orgao, eval = !is_html}
+nshow <- 6
+df_orgao_ind %>%
+  copy() %>% 
+  head(nshow) %>% 
+  select(-pct_indigena) %>%
+  setnames(c("Sigla do Órgão",
+             "Órgão vinculado",
+             "Total de vínculos",
+             "Total de vínculos de indígenas",
+             "Percentual dos indígenas vinculados ao órgão"))  %>%
+  flextable_c(
+    cwidth = 1.2
+  ) %>%
+  flextable::set_caption(
+    caption =
+      as_paragraph(
+        as_chunk(
+        paste0("Percentual dos indígenas vinculados ao órgão\n(",
+               nshow," órgãos com maior percentual)"),
+        props =  officer::fp_text(
+          color = pal_primaria[1],
+          font.size = 14,
+          bold = TRUE)
+        )
+        ),
+    # fontfamily = "title_font",
+    # color = pal_primaria[1],
+    # size = 24,
+    # bold = TRUE,
+    align_with_table = TRUE
+  )  %>%
+  bg(
+    bg = col_share,
+    j = "Percentual dos indígenas vinculados ao órgão",
+    part = "body")
+```
 
 ```{r ntjur_orgao}
 # bscols(ggplotly(natjur_plot),
@@ -836,7 +971,7 @@ df_mapa_h3 <- head(df_mapa_final,3) %>% setDT
 ```
 
 
-Com relação à UF de vínculo, os Estados que mais concentram vínculos indígenas são `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
+Com relação à UF de exercício do servidor, a maior concentração de vínculos indígena está no `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
 
 
 ```{r show_mapa}
@@ -860,8 +995,8 @@ ggplot(data = df_mapa_final) +
   
   # Títulos e Identidade Visual
   labs(
-    title = "Concentração de Vínculos Indígenas por UF",
-    subtitle = paste0("Base de dados: ",dt_max_show),
+    title = paste0("Concentração de Vínculos Indígenas por UF,",dt_max_graph),
+    # subtitle = paste0("",dt_max_graph),
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Malhas: geobr (IBGE) | Processamento: R/Spark",
     x = NULL,
     y = NULL,
@@ -899,14 +1034,7 @@ df_efetivos <- readRDS('../data/df_efetivos.RDS') %>%
 
 prop_efetivos_last <- 
   df_efetivos %>%
-  filter(mes == dt_max_siape)  %>% 
-  # .[,.(total = sum(total)),
-  #   .(nome_sexo,
-  #     efetivo,
-  #     etnia = ifelse(nome_cor_origem_etnica == "INDIGENA",
-  #                    "Indígenas",
-  #                    "Demais raça/cor")
-  #     )] %>%
+  filter(mes == dt_max_siape)  %>%
   .[,p := round(100*total/sum(total),1),
     .(nome_sexo,
       nome_cor_origem_etnica 
@@ -916,11 +1044,19 @@ prop_efetivos_last <-
   filter(efetivo & nome_cor_origem_etnica != "NAO INFORMADO")
 
 
+prop_efetivos_last_nogender <- 
+  df_efetivos[mes == dt_max_siape,
+              .(total = sum(total)),
+              .(nome_cor_origem_etnica,efetivo)]  %>% 
+  .[,p := round(100*total/sum(total),1),
+    .(nome_cor_origem_etnica 
+      )] %>%
+  filter(efetivo & nome_cor_origem_etnica == "INDIGENA")
 
 ```
 
 
-Em `r dt_max_show`, `r df_efetivos[nome_cor_origem_etnica == 'INDIGENA',round(100*sum(total*efetivo)/sum(total))]`% dos vínculos ativos de indígenas eram de servidores efetivos. Considerando todos os vínculos ativos da APF, este percentual era de  `r df_efetivos[,round(100*sum(total*efetivo)/sum(total))]`%. Entre os indígenas, os percentuais de efetivos para mulheres e homens eram, respectivamente, `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Fem",p]`% e `r prop_efetivos_last[nome_cor_origem_etnica == 'INDIGENA' & nome_sexo == "Mas",p]`%.
+Em `r dt_max_show`, `r df_efetivos[nome_cor_origem_etnica == 'INDIGENA',round(100*sum(total*efetivo)/sum(total))]`% dos vínculos ativos de indígenas eram de servidores com cargo efetivo. Considerando todos os vínculos ativos da APF, este percentual era de  `r df_efetivos[,round(100*sum(total*efetivo)/sum(total))]`%. Entre os indígenas, o percentuaL de servidores com cargo efetivo era de `r prop_efetivos_last_nogender[,p]`%.
 
 ```{r plot_efetivos}
 ## plot 1
@@ -936,19 +1072,23 @@ prop_efetivos_last %>%
             col = "white",
             position = position_dodge2(width = 1)) + 
   coord_flip() +
-  labs(title = paste0("Incidência de Vínculos efetivos por sexo e raça/cor, ",
-                      dt_max_show),
+  labs(title = paste0("Percentual servidores efetivos por sexo e raça/cor/etnia, ",
+                      dt_max_graph),
        x = "Percentual de Vínculos efetivos",
        y = "Raça/cor",
        fill = NULL)  -> efetivos_sexo_etnia
 
-ggplotly_c(efetivos_sexo_etnia) %>%
-  plotly::layout(legend = list(x = 0.45,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
+if(is_html){
+  ggplotly_c(efetivos_sexo_etnia) %>%
+    plotly::layout(legend = list(x = 0.45,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+                   )
+  }else{
+    efetivos_sexo_etnia
+  }
 
 ```
 
@@ -995,15 +1135,27 @@ diff_efetivo[which.min(total),] -> anomenor
 
 #### frases para NÃO efetivos
 
-## ano maior queda
-diff_efetivo[which.max(diff_efetivo),] -> anosalto
+## ano maior salto nos não-efetivos
+diff_n_efetivo <- serie_efetivos[etnia == "Indígenas" & !efetivo,] %>% 
+  setorder(ano)  %>% 
+  .[,`:=`(diff_efetivo = total - lag(total),
+          diff_p_efetivo = p - lag(p),
+          anterior = lag(total),
+          panterior = lag(p))]
+diff_n_efetivo[which.max(diff_efetivo),] -> anosalto
 
 ```
 
-Ao longo do período de `r serie_efetivos[,range(ano)] %>% lista_e(" a ")`, o total de vínculos efetivos de indígenas variou de forma considerável. A série começa em `r minano` com `r serie_efetivos[ano == minano & etnia == "Indígenas" & efetivo,formatar_num(total,0)]` indígenas efetivos, passa por uma queda abrupta de `r anoqueda$ano - 1` para `r anoqueda$ano`, chegando a `r anoqueda[,formatar_num(total,0)]`, passando pelo seu menor valor de `r anomenor[,formatar_num(total,0)]` em `r anomenor$ano`, finalizando em `r maxano` com `r serie_efetivos[ano == maxano & etnia == "Indígenas" & efetivo,formatar_num(total,0)]`. Por outro lado, houve um salto em `r anosalto$ano` no número de indígenas não efetivos de `r anosalto$anterior %>% formatar_num(0)` para `r anosalto$total %>% formatar_num(0) `. 
+Ao longo do período de `r serie_efetivos[,range(ano)] %>% lista_e(" a ")`, o total de vínculos efetivos de indígenas variou de forma considerável. A série começa em `r minano` com `r serie_efetivos[ano == minano & etnia == "Indígenas" & efetivo,formatar_num(total,0)]` indígenas efetivos, chegando ao seu menor valor, `r anomenor[,formatar_num(total,0)]` em `r anomenor$ano`. Tal diminuição é explicada por aposentadorias e óbitos no período, sem a contrapartida de ingressos indígenas suficientes à manutenção do quantitativo. Todavia, a partir de 2022, o quantitativo de indígenas vem apresentando aumento.
+
+Em relação aos vínculos sem cargo efetivo, também registrou queda a partir de 2016, com um salto no ano `r anosalto$ano` de `r anosalto$anterior %>% formatar_num(0)` para `r anosalto$total %>% formatar_num(0) `. 
 
 
 ```{r indigenas_compara_efet}
+# passa por uma queda abrupta de `r anoqueda$ano - 1` para `r anoqueda$ano`, chegando a `r anoqueda[,formatar_num(total,0)]`
+
+# , finalizando em `r maxano` com `r serie_efetivos[ano == maxano & etnia == "Indígenas" & efetivo,formatar_num(total,0)]`
+
 
 serie_efetivos %>%
   # filter( nome_cor_origem_etnica == "INDIGENA")%>%
@@ -1018,19 +1170,24 @@ serie_efetivos %>%
   geom_line(size = 1.3) +
   geom_point(size = 2)  +
   # facet_wrap(~nome_sexo) +
-  labs(title = paste0("Vínculos de indígenas por mês, efetivos X não efetivos",
-                      dt_max_show),
+  labs(title = paste0("Vínculos de indígenas por mês, efetivos X não efetivos, ",
+                      dt_max_graph),
        y = "Total de Vínculos",
        x = NULL,
        col = NULL) -> efetivos_mes_indigenas
 
-ggplotly_c(efetivos_mes_indigenas)%>%
-  plotly::layout(legend = list(x = 0.55,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
+
+if(is_html){
+  ggplotly_c(efetivos_mes_indigenas)%>%
+    plotly::layout(legend = list(x = 0.55,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+    )
+  }else{
+    efetivos_mes_indigenas
+    }
 
 ```
 
@@ -1072,19 +1229,24 @@ serie_efetivos %>%
   geom_line(size = 1.3) +
   geom_point(size = 2)  +
   # facet_wrap(~nome_sexo) +
-  labs(title = paste0("Incidência de Vínculos efetivos por mês e raça/cor",
-                      dt_max_show),
+  labs(title = paste0("Incidência de Vínculos efetivos por mês e raça/cor, ",
+                      dt_max_graph),
        y = "Percentual de Vínculos efetivos",
        x = NULL,
        col = NULL) -> efetivos_mes_etnia
 
-ggplotly_c(efetivos_mes_etnia)%>%
-  plotly::layout(legend = list(x = 0.55,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
+
+if(is_html){
+  ggplotly_c(efetivos_mes_etnia)%>%
+    plotly::layout(legend = list(x = 0.55,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+    )
+  }else{
+    efetivos_mes_etnia
+  }
 
 ```
 
@@ -1166,7 +1328,7 @@ ingresso_cotas <-
   
 ```
 
-O gráfico a seguir aponta as variações anuais de saídas e ingressos de servidores efetivos indígenas. A variação no número de efetivos foi negativa durante todo o período em que o número de novos aposentados e instituidores de pensões foi superior ao número de ingressantes, de `r periodo_negativo`. Portanto, a queda no número de servidores efetivos é explicada pelo fato de que a saída foi superior ao ingresso de novos servidores.
+O gráfico a seguir aponta as variações anuais de saídas e ingressos de servidores efetivos indígenas. A variação no número de efetivos foi negativa durante todo o período em que o número de aposentadorias e óbito foi superior ao número de ingressos, de `r periodo_negativo`. Tal situação explica a queda a queda no número de servidores efetivos no período.
 
 
 ```{r variacao_efetivos}
@@ -1181,6 +1343,8 @@ serie_variacoes %>%
        x = NULL,
        y = "Variação na quantidade de vínculos") -> plot_variacoes
 
+
+if(is_html){
 ggplotly_c(plot_variacoes)  %>%
   plotly::layout(legend = list(x = 0.45,
                                y = 0,
@@ -1188,13 +1352,16 @@ ggplotly_c(plot_variacoes)  %>%
                                yanchor = "upper",
                                orientation = "h")
                  )
+  }else{
+    plot_variacoes
+    }
 
 ```
 
 
+A reserva de vagas específica para indígenas em concursos públicos federais foi estabelecida de forma abrangente com a Lei nº 15.142, de 3 de junho de 2025. Esta nova legislação substituiu a lei de cotas anterior, de 2014, ampliando para 30% a reserva de vagas para candidatos pretos, pardos, indígenas e quilombolas. O percentual estabelecido especificamente para indígenas foi de 3%.
 
-Desde o primeiro ingresso por cotas para indígenas, em `r inicio_cotas`, dos `r ingresso_cotas$ingressos` de ingressos que se autodeclaram nesta categoria, `r ingresso_cotas$cotas` (`r formatar_num(100*ingresso_cotas$cotas/ingresso_cotas$ingressos,1)`%) foram beneficiários desta política afirmativa.
-
+Desde então, foram registrados `r ingresso_cotas$cotas` ingressos por cota para indígenas, o que corresponde a `r formatar_num(100*ingresso_cotas$cotas/ingresso_cotas$ingressos,1)`% dos ingressos de indígenas (`r ingresso_cotas$ingressos`) no governo federal.
 
 
 ```{r evolucao_efetivos}
@@ -1207,17 +1374,22 @@ serie_variacoes %>%
        x = NULL,
        y = "Total de vínculos") -> plot_evolucoes
 
-ggplotly_c(plot_evolucoes)  %>%
-  plotly::layout(legend = list(x = 0.45,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
+
+if(is_html){
+  ggplotly_c(plot_evolucoes)  %>%
+    plotly::layout(legend = list(x = 0.45,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+                   )
+  }else{
+    plot_evolucoes  
+  }
 ```
 
 
-# Funções e lideranças
+# Cargos Comissionados e Funções de Confiança
 
 
 ```{r funcao}
@@ -1272,9 +1444,9 @@ df_etnia_sexo_funcao[,.(i_funcao = 100*sum(total*funcao)/sum(total)),
 ```
 
 
-Em `r dt_max_show`, a incidência de funções entre vínculos indígenas é de `r i_funcao$indigenas %>% formatar_num(1)`%, `r ifelse(i_funcao[,indigenas > demais],"superior","inferior")` à observada nas demais categorias de raça/cor, na ordem de `r i_funcao$demais %>% formatar_num(1)`%. As categorias onde se observa maior parcela de vínculos com função são `r df_etnia_sexo_funcao[,.(i_funcao = 100*sum(total*funcao)/sum(total)),.(etn = nome_cor_origem_etnica)] %>% setorder(-i_funcao) %>% head(3) %>% .[,paste0(etn," (",round(i_funcao,1),"%)")] %>% lista_e(" e ")`.
+Em `r dt_max_show`, a incidência de Cargos Comissionados e Funções de confiança entre vínculos indígenas é de `r i_funcao$indigenas %>% formatar_num(1)`%, `r ifelse(i_funcao[,indigenas > demais],"superior","inferior")` à observada nas demais categorias de raça/cor, na ordem de `r i_funcao$demais %>% formatar_num(1)`%. As categorias onde se observa maior parcela de vínculos com função são `r df_etnia_sexo_funcao[,.(i_funcao = 100*sum(total*funcao)/sum(total)),.(etn = nome_cor_origem_etnica)] %>% setorder(-i_funcao) %>% head(3) %>% .[,paste0(etn," (",round(i_funcao,1),"%)")] %>% lista_e(" e ")`.
 
-Quanto ao gênero, o percentual de exercício de funções entre homens é `r i_funcao_sexo$indigenas %>% abs %>% formatar_num(1)` pontos percentuais `r ifelse(i_funcao_sexo$indigenas < 0,'abaixo','acima')` do observado entre mulheres. Nas demais categorias, a diferença é de `r  i_funcao_sexo$demais %>% abs %>% formatar_num(1)` `r  ifelse(i_funcao_sexo$demais < 0,'a menos','a mais')` entre homens em comparação às mulheres.
+Quanto ao gênero, o percentual de exercício de funções entre homens indígenas é `r i_funcao_sexo$indigenas %>% abs %>% formatar_num(1)` pontos percentuais `r ifelse(i_funcao_sexo$indigenas < 0,'abaixo','acima')` do observado entre mulheres indígenas. Nas demais categorias de cor/raça/etnia, a diferença é de `r  i_funcao_sexo$demais %>% abs %>% formatar_num(1)` `r  ifelse(i_funcao_sexo$demais < 0,'a menos','a mais')` entre homens em comparação às mulheres.
 
 ```{r plot_funcao}
 df_etnia_sexo_funcao %>%
@@ -1293,19 +1465,23 @@ df_etnia_sexo_funcao %>%
             # hjust = -2
             ) +
   coord_flip() +
-  labs(title = paste0("Incidência de vínculos com função, por sexo e raça/cor, ",
-                      dt_max_show),
+  labs(title = paste0("Incidência cargos comissionados e funções de confiança, por sexo e raça/cor, ",
+                      dt_max_graph),
        x = "Percentual de vínculos com função",
        y = "Raça/cor",
        fill = NULL)-> funcao_sexo_etnia
 
-ggplotly_c(funcao_sexo_etnia) %>%
-  plotly::layout(legend = list(x = 0.45,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
+if(is_html){
+  ggplotly_c(funcao_sexo_etnia) %>%
+    plotly::layout(legend = list(x = 0.45,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+                   )
+  }else{ 
+    funcao_sexo_etnia
+    }
 ```
 
 
@@ -1368,19 +1544,23 @@ df_serie_funcao %>%
   geom_line(size = 1.3) +
   geom_point(size = 2)  +
   # facet_wrap(~nome_sexo) +
-  labs(title = paste0("Incidência de vínculos com função por mês e raça/cor",
-                      dt_max_show),
+  labs(title = paste0("Incidência de vínculos com função por mês e raça/cor, ",
+                      dt_max_graph),
        y = "Percentual de vínculos com função",
        x = NULL,
        col = NULL) -> funcao_mes_etnia
 
-ggplotly_c(funcao_mes_etnia)%>%
-  plotly::layout(legend = list(x = 0.55,
-                               y = 0,
-                               xanchor = "center",
-                               yanchor = "upper",
-                               orientation = "h")
-                 )
+if(is_html){
+   ggplotly_c(funcao_mes_etnia) %>%
+    plotly::layout(legend = list(x = 0.55,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+                   )
+  }else{
+     funcao_mes_etnia
+  }
 
 ```
 
@@ -1431,10 +1611,23 @@ serie_niveis %>%
     ) +
   geom_line(size = 1.3) +
   geom_point(size = 2) +
-  labs(x = NULL,y = "Quantitativo de vínculos",col = NULL) +
+  labs(title = 
+         paste0("Evolução anual do quantitativo de vínculos com função FCE ou CCE, por nível e etnia, ",
+                dt_max_graph),
+       x = NULL,y = "Quantitativo de vínculos",col = NULL) +
   facet_wrap(.~etnia,scales = "free_y") -> serie_niveis
 
-ggplotly_c(serie_niveis)
+if(is_html){
+   ggplotly_c(serie_niveis) %>%
+    plotly::layout(legend = list(x = 0.55,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+                   )
+  }else{
+     serie_niveis
+  }
 ```
 
 
@@ -1526,14 +1719,12 @@ df_funcao_total %>%
             # col = pal_primaria["principal"],
             col =  "white") +
   labs(title = paste0("Quantitativo de ocupantes de cargos de liderança em ",
-                      dt_max_show),
+                      dt_max_graph),
        x = "Nível CCE/FCE",
        y = "Número de vínculos",
        fill = "") +
   facet_wrap(~etnia,ncol = 2,scales = "free_x") +
   coord_flip() -> prev_tot
-ggplotly_c(prev_tot)
-
 
 df_funcao_total %>%
   filter(mes == dt_max_siape) %>%
@@ -1552,13 +1743,39 @@ df_funcao_total %>%
              # col = pal_primaria["principal"],
              col = "white") +
   labs(title = paste0("Percentual de ocupção de cargos de liderança por gênero em ",
-                      dt_max_show),
+                      dt_max_graph),
        x = "Nível CCE/FCE",
        y = "Percentual dentre indígenas, por sexo",
        fill = "") +
   facet_wrap(~etnia,ncol = 2,scales = "free_x") +
   coord_flip() -> prev_perc
-ggplotly_c(prev_perc)
+
+if(is_html){
+   prev_tot <- 
+     ggplotly_c(prev_tot) %>%
+     plotly::layout(legend = list(x = 0.45,
+                                  y = 0,
+                                  xanchor = "center",
+                                  yanchor = "upper",
+                                  orientation = "h")
+                    )
+   prev_perc <-
+     ggplotly_c(prev_perc) %>%
+     plotly::layout(legend = list(x = 0.45,
+                                  y = 0,
+                                  xanchor = "center",
+                                  yanchor = "upper",
+                                  orientation = "h")
+                    )
+   htmltools::browsable(
+     htmltools::tagList(
+       prev_tot,
+       prev_perc
+     )
+   )
+}else{
+  print(prev_tot)
+  print(prev_perc)}
 ```
 
 
@@ -1609,7 +1826,7 @@ frase_equidade <-
 ```
 
 
-Uma forma de analisar o acesso a níveis de liderança pode ser determinada por um *índice de equidade de acessos*. O indicador é construído partindo-se da hipótese de que, na ausência de desigualdade racial e de gênero no acesso a cargos de liderança, a proporção de indígenas em cargos FCE deveria ser equivalente à sua proporção entre os servidores efetivos ativos. Assim, este índice é definido como sendo a razão entre o percentual de indígenas em cargos de liderança (FCE) e o percentual de pessoas indígenas no quadro efetivo ativo. Mais precisamente, 
+Uma forma de analisar o acesso a níveis de liderança pode ser determinada por um *índice de equidade de acessos*. O indicador é construído partindo-se da hipótese de que, na ausência de desigualdade racial e de gênero no acesso à Função Comissionada Executiva (FCE), a proporção de indígenas em cargos FCE deveria ser equivalente à sua proporção entre os servidores efetivos ativos. Isso porque, para assumir uma função FCE é necessário que o servidor tenha um vínculo ativo com cargo efetivo. Assim, este índice é definido como sendo a razão entre o percentual de indígenas em função FCE e o percentual de pessoas indígenas no quadro efetivo ativo. Mais precisamente, 
 
 $$\text{Índice de equidade} = \frac{\text{% indígenas em cargos FCE}}{\text{% indígenas no quadro efetivo ativo}}$$
 
@@ -1639,12 +1856,23 @@ df_funcao_efetivos %>%
   geom_line(size =  1.3) + 
   geom_point(size = 2) + 
   geom_hline(yintercept = 1) +
-  labs(x = NULL,
+  labs(title = paste0("Índice de equidade de acesso a cargos FCE por nível e gênero, ",
+                   dt_max_graph),
+       x = NULL,
        y = "Razão de equidade",col = NULL) + 
   facet_wrap(.~nome_sexo)-> serie_razao
 
-ggplotly_c(serie_razao)
-
+if(is_html){
+   ggplotly_c(serie_razao) %>%
+    plotly::layout(legend = list(x = 0.45,
+                                 y = 0,
+                                 xanchor = "center",
+                                 yanchor = "upper",
+                                 orientation = "h")
+                   )
+  }else{
+     serie_razao
+  }
 
 
 ```
