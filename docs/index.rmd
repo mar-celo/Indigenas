@@ -332,7 +332,11 @@ ggplot_cat(df_indigena_mes,
   # Pontos apenas para a categoria indígena (para destaque extra)
   geom_point(aes(y = n,
                  color = "Total"),
-             size = 3.5)  +
+             size = 3.5)  + 
+  
+  # segundo eixo
+  scale_y_continuous(name = "Total",
+                     sec.axis = sec_axis(pct ~ ./codf  ,name = "Percentual"))  +
   
   # Etiqueta de texto direta
   geom_text(data = label_final, 
@@ -356,10 +360,61 @@ ggplot_cat(df_indigena_mes,
 
 # serie_indigenas
 if(is_html){
-  ggplotly_c(serie_indigenas)
+  df_test <- copy(df_indigena_mes)
+  setnames(df_test,"data","ano")
+  plot_ly(data = df_test, x =~ ano) |>
+    add_lines(y = ~ n,
+              name = "Total",
+              line = list(
+                color = pal_primaria[1],
+                width = 2)
+              ) |>
+    add_markers(y = ~ n,
+              name = "Total",
+                marker = list(
+                  color = pal_primaria[1],
+                  width = 3),
+                showlegend  = F
+                ) |>
+    add_lines(y = ~ pct,
+              name = "Percentual", 
+              yaxis = "y2",
+              line = list(
+                color = pal_primaria[2],
+                width = 2)      
+              ) |>
+    add_markers(y = ~ pct,
+                name = "Percentual",
+                marker = list(
+                  color = pal_primaria[2],
+                  width = 3),
+                 yaxis = "y2",
+                showlegend  = F
+                ) |>
+    layout(
+      xaxis = list(title = ""),
+      yaxis = list(title = "Total"),
+      yaxis2 = 
+        list(
+          title = "Percentual",
+          overlaying = "y",
+          side = "right",
+          tickformat = "0.2f"
+          ),
+      margin = list(r = 80),
+      legend = 
+        list(
+          orientation = "h",
+          x = 0.5,
+          xanchor = "center",
+          y = -0.2
+          )
+      )
 }else{
   serie_indigenas
 }
+
+
 
 ```
 
@@ -436,9 +491,18 @@ df_orgao[,`:=`(
   pct_indigena = round(100*total/sum(total),2)),
   .(orgao_vinc)] %>%
   filter(nome_cor_origem_etnica == "INDIGENA") %>%
-  setorder(-pct_indigena) %>%
   select(nome_orgao_vinc,no_orgao,total_orgao,total,pct_indigena) -> df_orgao_ind
 
+
+
+# nomes corrigidos
+orgaos_texto <- readxl::read_excel(path = '../data/orgaos_ind.xlsx') %>% setDT
+
+# juntando os nomes corrigidos
+df_orgao_ind <- left_join(df_orgao_ind,
+                          orgaos_texto[,.(nome_orgao_vinc,no_orgao_texto)],
+                   by = "nome_orgao_vinc") %>%
+  setorder(-pct_indigena)
 
 df_orgao3 <- head(df_orgao_ind,2)
 
@@ -450,7 +514,7 @@ col_pct <- col_numeric(palette = c("white",pal_primaria['principal']),
 ```
 
 
-Ao analisar a representatividade de indígenas em cada órgão, a tabela a seguir aponta  `r df_orgao3[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")",", com ",pct_indigena,"%") %>% lista_e(sep_l = "; ")]` como aqueles em que há maior presença de indígenas com relação ao total de vínculos. Juntos, estes órgãos contam com `r df_orgao3[,sum(total_orgao)] %>% formatar_num(0)` vínculos, sendo que `r df_orgao3[,100*sum(total)/sum(total_orgao)] %>% formatar_num(1)`% são de pessoas indígenas. Por outro lado, estes mesmo órgãos concentram `r formatar_num(100*df_orgao3[,sum(total)]/df_orgao_ind[,sum(total)],1)`% dos vínculos ativos de indígenas.
+Ao analisar a representatividade de indígenas em cada órgão, a tabela a seguir aponta  `r df_orgao3[,paste0(str_to_title(no_orgao_texto)," (",nome_orgao_vinc,")",", com ",pct_indigena,"%") %>% lista_e(sep_l = "; ")]` como aqueles em que há maior presença de indígenas com relação ao total de vínculos. Juntos, estes órgãos contam com `r df_orgao3[,sum(total_orgao)] %>% formatar_num(0)` vínculos, sendo que `r df_orgao3[,100*sum(total)/sum(total_orgao)] %>% formatar_num(1)`% são de pessoas indígenas. Por outro lado, estes mesmo órgãos concentram `r formatar_num(100*df_orgao3[,sum(total)]/df_orgao_ind[,sum(total)],1)`% dos vínculos ativos de indígenas.
 
 ```{r dt_indigena_orgao, eval = is_html}
 
@@ -458,11 +522,12 @@ Ao analisar a representatividade de indígenas em cada órgão, a tabela a segui
 
 dt2 <- df_orgao_ind %>%
   copy %>%
-  setnames(c("Órgão vinculado",
-           "Sigla do Órgão",
-           "Total de vínculos",
-           "Total de vínculos de indígenas",
-           "Participação (%) de indígenas no órgão")) %>%
+  select(-no_orgao_texto) %>% 
+  setnames(c("Sigla",
+             "Órgão",
+             "Total de vínculos",
+             "Total de vínculos de indígenas",
+             "Participação (%) de indígenas no órgão")) %>% 
   DT::datatable(#filter = "top",
                 #style = "bootstrap",
                 class = "compact",
@@ -496,13 +561,14 @@ dt2
 nshow <- 6
 df_orgao_ind %>%
   copy %>%
-  head(nshow) %>%
+  select(nome_orgao_vinc,no_orgao_texto,total_orgao,total,pct_indigena) %>%
+  head(nshow) %>% 
   setnames(
-    c("Órgão vinculado",
-      "Sigla do Órgão",
+    c("Sigla do Órgão",
+      "Órgão",
       "Total de vínculos",
       "Total de vínculos de indígenas",
-      "Participação (%) de indígenas no órgão")) %>%
+      "Participação (%) de indígenas no órgão")) %>% 
   flextable_c(
     cwidth = 1.2
   ) %>%
@@ -847,7 +913,9 @@ if(is_html){
 
 
 ```{r share_indigenas}
+# dados por órgão
 df_orgao_ind[,share_ind := round(100*total/sum(total),2)]
+
 
 
 setorder(df_orgao_ind,-share_ind)
@@ -863,7 +931,7 @@ col_share <- col_numeric(palette = c("white",pal_primaria['principal']),
 ```
 
 
-Ao analisar a distribuição de indígenas por órgão, a tabela a seguir aponta  `r df_orgao3_share[,paste0(str_to_title(no_orgao)," (",nome_orgao_vinc,")") %>% lista_e(" e ")]` como aqueles em que os vínculos de indígenas estão mais concentrados, responsáveis por `r formatar_num(df_orgao3_share[,sum(share_ind)],1)`% dos vínculos ativos de indígenas.
+Ao analisar a distribuição de indígenas por órgão, a tabela a seguir aponta  `r df_orgao3_share[,paste0(str_to_title(no_orgao_texto)," (",nome_orgao_vinc,")") %>% lista_e(" e ")]` como aqueles em que os vínculos de indígenas estão mais concentrados, responsáveis por `r formatar_num(df_orgao3_share[,sum(share_ind)],1)`% dos vínculos ativos de indígenas.
 
 ```{r dt_percentuais_orgao, eval = is_html}
 ## Distribuição de indígenas por órgão
@@ -873,9 +941,9 @@ Ao analisar a distribuição de indígenas por órgão, a tabela a seguir aponta
 
 dt3 <- df_orgao_ind %>%
   copy() %>% 
-  select(-pct_indigena) %>%
+  select(-pct_indigena,-no_orgao_texto) %>% 
   setnames(c("Sigla do Órgão",
-             "Órgão vinculado",
+             "Órgão",
              "Total de vínculos",
              "Total de vínculos de indígenas",
              "Percentual dos indígenas vinculados ao órgão")) %>%
@@ -910,10 +978,10 @@ dt3
 nshow <- 6
 df_orgao_ind %>%
   copy() %>% 
+  select(nome_orgao_vinc,no_orgao_texto,total_orgao,total,share_ind) %>%
   head(nshow) %>% 
-  select(-pct_indigena) %>%
-  setnames(c("Sigla do Órgão",
-             "Órgão vinculado",
+  setnames(c("Sigla",
+             "Órgão",
              "Total de vínculos",
              "Total de vínculos de indígenas",
              "Percentual dos indígenas vinculados ao órgão"))  %>%
@@ -1256,16 +1324,31 @@ if(is_html){
 
 ```{r tb_variacao_efetivos}
 serie_cotas <- readRDS('../data/serie_cotas.rds') %>% setDT
+serie_ingressos <- readRDS('../data/serie_ingressos.rds') %>% setDT
 df_indigenas_sit <- readRDS("../data/df_indigenas_sit.rds") %>% setDT
 
 ## saídas por aposentadoria ou pensão
 df_indigenas_sit[situacao %in% c("Aposentado","Instituidor pensao") & 
                    efetivo,
-                 .(grupo = "Aposentados/Inst. Pensões",
+                 .(grupo = "Novos Aposentados/Inst. Pensões",
                    total = sum(total)),
                  .(ano  = substr(mes.f,1,4) %>% as.numeric)] %>%
   setorder(ano) %>%
   .[,diff_total := total - lag(total)] -> serie_saidas_indigenas
+
+
+##  ingressos totais
+serie_ingressos_indigenas <- 
+  serie_ingressos[no_cor_origem_etnica == "INDIGENA" & 
+                    !is.na(mes) &
+                    mes >= 201601 &
+                    mes <= 202602,
+                  .(grupo = "Novos Ingressos",
+                    diff_total = sum(total)),
+                  .(ano = substr(mes,1,4) %>% as.numeric)
+                  ] %>%  
+  setorder(ano) %>% 
+  .[,total := cumsum(diff_total),.(grupo)]
 
 
 ##  ingressos por cotas
@@ -1275,8 +1358,7 @@ serie_cotas_indigenas <-
                 !is.na(mes) &
                 mes >= 201601 &
                 mes <= 202601,
-              .(diff_total = sum(total))
-              ,
+              .(diff_total = sum(total)),
               .(ano = substr(mes,1,4) %>% as.numeric,
                 grupo = 
                   ifelse(co_tipo_cota == 4,
@@ -1293,7 +1375,7 @@ serie_cotas_indigenas <-
 
 serie_variacoes <- 
   list(serie_saidas_indigenas,
-       serie_cotas_indigenas,
+       serie_ingressos_indigenas,
        diff_efetivo %>%
          select(ano,total,diff_efetivo) %>% 
          .[,grupo := "Efetivos Ativos"] %>%
@@ -1304,9 +1386,8 @@ serie_variacoes <-
   .[,grupo.f := factor(grupo,
                        levels = 
                          c("Efetivos Ativos",
-                           "Aposentados/Inst. Pensões",
-                           "Sem cotas",
-                           "Cotas para Indígenas"
+                           "Novos Aposentados/Inst. Pensões",
+                           "Novos Ingressos"
                            ),
                         ordered = T)]
 
@@ -1320,11 +1401,11 @@ inicio_cotas <-
                   min(ano)]
 
 ingresso_cotas <- 
-  serie_variacoes[grepl("cotas",grupo,ignore.case = T) & 
-                    ano >= inicio_cotas,
-                  .(ingressos  = sum(diff_total),
-                    cotas = sum(diff_total*(grupo == "Cotas para Indígenas"))
-                    )]
+  serie_cotas_indigenas[grepl("cotas",grupo,ignore.case = T) & 
+                          ano >= 2025,
+                        .(ingressos  = sum(diff_total),
+                          cotas = sum(diff_total*(grupo == "Cotas para Indígenas"))
+                          )]
   
 ```
 
@@ -1332,14 +1413,36 @@ O gráfico a seguir aponta as variações anuais de saídas e ingressos de servi
 
 
 ```{r variacao_efetivos}
+serie_variacoes[,diff_total2 :=
+                  ifelse(grupo.f == "Novos Ingressos",
+                         diff_total,
+                         diff_total*(-1)
+                         )]
+
 serie_variacoes %>%
-  # filter
-  ggplot_cat(aes(x = ano,y = diff_total,col =grupo.f)) + 
-  geom_line(size = 1.2) + 
-  geom_point(size = 2) +
-  geom_hline(yintercept = 0) + 
-  labs(title = "Variação anual nos efetivos de indígenas por situação e forma de ingresso",
+  filter(ano > 2016) %>%
+  ggplot_cat(aes(x = ano,
+                 y = diff_total2,
+                 fill =grupo.f,
+                 colour =grupo.f))  + 
+  geom_line(data = filter(serie_variacoes,
+                          grupo.f == "Efetivos Ativos"),
+           aes(y = total),
+           size = 1.2)+
+  geom_point(data = filter(serie_variacoes,
+                           grupo.f == "Efetivos Ativos"),
+             aes(y = total),
+             # col =  "Efetivos Ativos"),
+             size = 2,
+             show.legend = F) + 
+  geom_col(data = filter(serie_variacoes,
+                         grupo.f != "Efetivos Ativos")) +
+  scale_x_continuous(breaks = seq(dt_range[1],dt_range[2]) %>% year) +
+  # geom_point(size = 2) +
+  geom_hline(yintercept = 0) +
+  labs(title = "Variação anual nos efetivos de indígenas\npor situação e forma de ingresso",
        col = NULL,
+       fill = NULL,
        x = NULL,
        y = "Variação na quantidade de vínculos") -> plot_variacoes
 

@@ -49,8 +49,8 @@ dic_cotas <- data.table(co_tipo_cota = 0:4,
                             "Cota PCD",
                             "Cota Indígena"))
 # formatando datas
-df_cotas[,anomes := as.Date(dt_lotacao_serv,"%d/%m/%Y") %>% format("%Y%m")]
-df_cotas_ind[,`:=`(anomes = as.Date(dt_lotacao_serv,"%d/%m/%Y") %>% format("%Y%m"),
+df_cotas[,anomes := as.Date(dt_ocor_ingr_spub_serv,"%d/%m/%Y") %>% format("%Y%m")]
+df_cotas_ind[,`:=`(anomes = as.Date(dt_ocor_ingr_spub_serv,"%d/%m/%Y") %>% format("%Y%m"),
                    anomes_ex = as.Date(dt_ocor_exclusao_serv,"%d/%m/%Y") %>% format("%Y%m"))]
 
 
@@ -120,6 +120,14 @@ df_spark <- spark_read_parquet(
   path = "/Volumes/mgi-bronze/raw_data_volumes/mgi/cginf/servidores_dwsiape_mensal_funcoes/"
 )
 
+
+# Leitura dos do Tabelão 202602
+df_tabelao <- spark_read_csv(
+  sc,
+  name = "tabelao",
+  delimiter = ";",
+  path = "/Volumes/mgi-bronze/raw_data_volumes/mgi/DIGID/CGINF/01.Bases_SAS/VW001_TABELAO_SERV_202602.csv") %>%
+  janitor::clean_names()
 
 
 # ==============================================================================.
@@ -514,6 +522,121 @@ df_indigenas_sit <- df_situacao_ind[,.(total = sum(v16)),
                                       )] %>%
   setorder(situacao,mes.f)
 
+
+
+df_tabelao %>%
+  filter(no_cor_origem_etnica == "INDIGENA") %>%
+  filter(!no_natureza_juridica %in% c("SERVICO PUBLICO ESTADUAL","EMPRESA PUBLICA","SOCIEDADE ECONOMIA  MISTA"),
+         co_orgao != 99072,
+         !sg_regime_juridico %in% c("RMI","ETE","ETG"),
+         !regime_jur_e_sit %in% c("EST-18","EST-19","EST-41","EST-42","ANS-36","ANS-37")
+  ) %>%
+  group_by(no_cor_origem_etnica,
+           no_cargo,
+           no_cargo_origem,
+           co_ocor_ingr_spub,
+           no_ocorrencia_ingspf,
+           nu_dip_leg_ingr_spub,
+           dt_ocor_ingr_spub_serv,
+           co_ocor_ingr_spub_posse,
+           co_natureza_juridica,
+           no_natureza_juridica,
+           co_orgao,
+           no_orgao,
+           sg_regime_juridico,
+           no_regime_juridico,
+           co_sit_serv,
+           no_sit_serv,
+           regime_jur_e_sit,
+           var_0001_situacao,
+           var_0002_sit_ativ,
+           co_ocor_exclusao,
+           no_ocorrencia_excl,
+           no_ocorrencia_apo,
+           dt_ocor_inatividade_serv,
+           dt_obito,
+           dt_ocor_exclusao_serv) %>%
+  summarise(total = n()) %>%
+  collect %>%
+  setDT() -> filtro_saidas_tabelao
+
+
+## filtro efetivos
+filtro_saidas_tabelao %>%
+  # filter(no_cor_origem_etnica == "INDIGENA") %>%
+  mutate(
+    efetivo_by_cargo =  ifelse(!(is.na(no_cargo) & is.na(no_cargo_origem)),
+                               total,
+                               0)#,
+    # efetivo_by_ing
+  ) %>%
+  .[,.(total = sum(total)),
+    .(efetivo_by_cargo = efetivo_by_cargo > 0,
+      co_ocor_ingr_spub,
+      no_ocorrencia_ingspf,
+      # nu_dip_leg_ingr_spub,
+      co_ocor_ingr_spub_posse
+
+      )
+    # .(efetivo_by_cargo = efetivo_by_cargo > 0,
+    #   tem_dt = !is.na(dt_ocor_ingr_spub_serv),
+    #   # co_ocor_ingr_spub_posse,
+    #   no_ocorrencia_ingspf)
+    ] %>%
+  setorder(efetivo_by_cargo,-total) %>% View
+  setorder(efetivo_by_cargo,tem_dt,-total) %>% View
+  group_by(var_0001_situacao) %>%
+  summarise(total = sum(total),
+            efetivo_by_cargo = sum(efetivo_by_cargo)) %>%
+  setDT %>% View
+
+
+
+filtro_teste_tabelao %>%
+  # filter(no_cor_origem_etnica == "INDIGENA") %>%
+  filter(!no_natureza_juridica %in% c("SERVICO PUBLICO ESTADUAL","EMPRESA PUBLICA","SOCIEDADE ECONOMIA  MISTA"),
+         co_orgao != 99072,
+         !sg_regime_juridico %in% c("RMI","ETE","ETG"),
+         !regime_jur_e_sit %in% c("EST-18","EST-19","EST-41","EST-42","ANS-36","ANS-37")
+         ) %>%
+  filter(!is.na(dt_ocor_exclusao_serv)) %>%
+  # filter(!is.na(dt_ocor_inatividade_serv)) %>%
+  # filter(!is.na(dt_obito)) %>%
+  mutate(efetivo =  !(is.na(no_cargo) & is.na(no_cargo_origem))) %>%
+  filter(efetivo) %>%
+  # group_by(efetivo,var_0001_situacao) %>%
+  group_by(efetivo,
+           co_ocor_exclusao,
+           no_ocorrencia_excl) %>%
+  # group_by(efetivo,no_ocorrencia_apo) %>%
+  # group_by(no_natureza_juridica) %>%
+  summarise(total = sum(total)) %>%
+  setorder(efetivo,-total) %>%
+  setDT %>%
+  .[,.(total = sum(total)),
+    .(#no_ocorrencia_excl,
+      motivo =
+        ifelse(grepl("MORTE|FALECIMENTO",no_ocorrencia_excl,ignore.case = T),
+               "Falecimento",
+               ifelse(
+                 grepl("t.rmino|rescis.o",no_ocorrencia_excl,ignore.case = T),
+                 "Término de contrato",
+                 ifelse(
+                   grepl("demiss.o|exonera..o|afastamento|abandono",no_ocorrencia_excl,ignore.case = T),
+                   "Demissão/Exoneração/Afastamento",
+                   "Outros motivos"
+                   )
+                 )
+               )
+      )] %>%
+  .[,p := 100*total/sum(total)] %>%
+  setorder(motivo,-p) %>% View
+
+
+filtro_teste_tabelao[!is.na(dt_ocor_exclusao_serv),
+                    .(total = .N),
+                    .(co_ocor_exclusao,
+                      no_ocorrencia_excl)] %>% View
 
 # df_indigenas_sit  %>%
 #   filter(!is.na(mes.f)) %>%
