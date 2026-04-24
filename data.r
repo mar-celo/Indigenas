@@ -43,8 +43,8 @@ df_cotas_ind <- fread(file.path(path_dados,"COTAS_COMINDICADOR.csv")) %>%
 
 dic_cotas <- data.table(co_tipo_cota = 0:4,
                         no_tipo_cota =
-                          c("Não informado",
-                            "Não",
+                          c("Sem info",
+                            "Sem cotas",
                             "Cota Racial",
                             "Cota PCD",
                             "Cota Indígena"))
@@ -451,22 +451,72 @@ saveRDS(df_funcao_efetivos,"data/df_funcao_efetivos.rds")
 # 9. Ingressos por cotas ------
 # ==============================================================================.
 
-df_cotas[,
-         .(total = .N),
-         .(mes = anomes,
-           no_cor_origem_etnica,
-           co_tipo_cota)
-         ] -> serie_ingressos
+df_tabelao %>%
+  filter(no_cor_origem_etnica == "INDIGENA") %>%
+  filter(!no_natureza_juridica %in% c("SERVICO PUBLICO ESTADUAL","EMPRESA PUBLICA","SOCIEDADE ECONOMIA  MISTA"),
+         co_orgao != 99072,
+         !sg_regime_juridico %in% c("RMI","ETE","ETG"),
+         !regime_jur_e_sit %in% c("EST-18","EST-19","EST-41","EST-42","ANS-36","ANS-37")
+  ) %>%
+  group_by(no_cor_origem_etnica,
+           no_cargo,
+           no_cargo_origem,
+           co_ocor_ingr_spub,
+           no_ocorrencia_ingspf,
+           nu_dip_leg_ingr_spub,
+           dt_ocor_ingr_spub_serv,
+           co_ocor_ingr_spub_posse,
+           co_natureza_juridica,
+           no_natureza_juridica,
+           co_orgao,
+           no_orgao,
+           sg_regime_juridico,
+           no_regime_juridico,
+           co_sit_serv,
+           no_sit_serv,
+           regime_jur_e_sit,
+           var_0001_situacao,
+           var_0002_sit_ativ,
+           co_ocor_exclusao,
+           no_ocorrencia_excl,
+           no_ocorrencia_apo,
+           dt_ocor_inatividade_serv,
+           dt_obito,
+           dt_ocor_exclusao_serv) %>%
+  summarise(total = n()) %>%
+  collect %>%
+  setDT() -> filtro_saidas_tabelao
 
-df_cotas_ind[,
-             .(total = .N),
-             .(mes = anomes,
-               no_cor_origem_etnica,
-               co_tipo_cotaefetivo = !(grepl("s/(cargo|info)",no_cargo,ignore.case = T) &
-                                         grepl("s/(cargo|info)",no_cargo_origem,ignore.case = T)
-               ))
-             ] -> serie_cotas
+filtro_saidas_tabelao[,mes_ingresso := format(as.Date(dt_ocor_ingr_spub_serv),"%Y%m")]
 
+
+### Série de ingressos (Tabelão)
+filtro_saidas_tabelao %>%
+  filter(!is.na(mes_ingresso)) %>%
+  .[,
+    .(total = sum(total)),
+    .(mes = mes_ingresso,
+      efetivo = !(is.na(no_cargo) &
+                    is.na(no_cargo_origem)
+      ),
+      no_cor_origem_etnica)
+  ]-> serie_ingressos
+
+df_cotas_ind %>%
+  filter(!is.na(anomes),
+         co_tipo_cota > 1) %>%
+  left_join(dic_cotas) %>%
+  .[,
+    .(total = .N),
+    .(mes = anomes,
+      no_cor_origem_etnica,
+      no_tipo_cota,
+      efetivo = !(grepl("s/(cargo|info)",no_cargo,ignore.case = T) &
+                    grepl("s/(cargo|info)",no_cargo_origem,ignore.case = T)
+                  ))
+    ] -> serie_cotas
+
+saveRDS(serie_ingressos,'data/serie_ingressos.rds')
 saveRDS(serie_cotas,'data/serie_cotas.rds')
 
 
@@ -523,42 +573,6 @@ df_indigenas_sit <- df_situacao_ind[,.(total = sum(v16)),
   setorder(situacao,mes.f)
 
 
-
-df_tabelao %>%
-  filter(no_cor_origem_etnica == "INDIGENA") %>%
-  filter(!no_natureza_juridica %in% c("SERVICO PUBLICO ESTADUAL","EMPRESA PUBLICA","SOCIEDADE ECONOMIA  MISTA"),
-         co_orgao != 99072,
-         !sg_regime_juridico %in% c("RMI","ETE","ETG"),
-         !regime_jur_e_sit %in% c("EST-18","EST-19","EST-41","EST-42","ANS-36","ANS-37")
-  ) %>%
-  group_by(no_cor_origem_etnica,
-           no_cargo,
-           no_cargo_origem,
-           co_ocor_ingr_spub,
-           no_ocorrencia_ingspf,
-           nu_dip_leg_ingr_spub,
-           dt_ocor_ingr_spub_serv,
-           co_ocor_ingr_spub_posse,
-           co_natureza_juridica,
-           no_natureza_juridica,
-           co_orgao,
-           no_orgao,
-           sg_regime_juridico,
-           no_regime_juridico,
-           co_sit_serv,
-           no_sit_serv,
-           regime_jur_e_sit,
-           var_0001_situacao,
-           var_0002_sit_ativ,
-           co_ocor_exclusao,
-           no_ocorrencia_excl,
-           no_ocorrencia_apo,
-           dt_ocor_inatividade_serv,
-           dt_obito,
-           dt_ocor_exclusao_serv) %>%
-  summarise(total = n()) %>%
-  collect %>%
-  setDT() -> filtro_saidas_tabelao
 
 
 ## filtro efetivos

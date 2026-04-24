@@ -90,7 +90,7 @@ is_html <- knitr::is_html_output()
 
 .main-container {
 
-  max-width: 85%;
+  max-width: 100%;
 
   margin-left: auto;
 
@@ -1330,7 +1330,7 @@ df_indigenas_sit <- readRDS("../data/df_indigenas_sit.rds") %>% setDT
 ## saídas por aposentadoria ou pensão
 df_indigenas_sit[situacao %in% c("Aposentado","Instituidor pensao") & 
                    efetivo,
-                 .(grupo = "Novos Aposentados/Inst. Pensões",
+                 .(grupo = "Aposentadorias/óbitos",
                    total = sum(total)),
                  .(ano  = substr(mes.f,1,4) %>% as.numeric)] %>%
   setorder(ano) %>%
@@ -1342,8 +1342,9 @@ serie_ingressos_indigenas <-
   serie_ingressos[no_cor_origem_etnica == "INDIGENA" & 
                     !is.na(mes) &
                     mes >= 201601 &
-                    mes <= 202602,
-                  .(grupo = "Novos Ingressos",
+                    mes <= 202602 & 
+                    efetivo,
+                  .(grupo = "Ingressos",
                     diff_total = sum(total)),
                   .(ano = substr(mes,1,4) %>% as.numeric)
                   ] %>%  
@@ -1352,25 +1353,50 @@ serie_ingressos_indigenas <-
 
 
 ##  ingressos por cotas
-serie_cotas_indigenas <- 
-  serie_cotas[no_cor_origem_etnica == "INDIGENA" & 
-                co_tipo_cota %in% c(1,4) &
-                !is.na(mes) &
-                mes >= 201601 &
-                mes <= 202601,
-              .(diff_total = sum(total)),
-              .(ano = substr(mes,1,4) %>% as.numeric,
-                grupo = 
-                  ifelse(co_tipo_cota == 4,
-                         "Cotas para Indígenas",
-                         ifelse(co_tipo_cota != 1,
-                                "Outras cotas",
-                                "Sem cotas")
-                         )
-                )
-              ] %>%  
-  setorder(ano) %>% 
-  .[,total := cumsum(diff_total),.(grupo)]
+serie_cotas_indigenas <-
+  serie_cotas %>%
+  setorder(mes)%>% 
+  filter(!(mes < 202506 & no_tipo_cota == "Cota Indígena")) %>%
+  filter(no_cor_origem_etnica == "INDIGENA",
+         mes >= 201601,
+         mes <= 202602) %>%
+  .[,.(diff_total = sum(total)),
+    .(ano = substr(mes,1,4) %>% as.numeric,
+      no_tipo_cota  =
+        # SE COTA PCD OU RACIAL, 'DEMAIS COTAS'
+        ifelse(no_tipo_cota %in% c("Cota PCD","Cota Racial"),
+               "Demais Cotas",
+               no_tipo_cota)
+      )] %>% 
+  dcast(ano ~ no_tipo_cota, value.var = "diff_total", fill = 0)
+
+## ingresso cotas X totais
+serie_cotas_ingressos <- 
+  serie_ingressos_indigenas %>%
+  select(ano,grupo,diff_total) %>%
+  left_join(serie_cotas_indigenas,
+            by = "ano") %>%  
+  .[,`Sem Cotas` := diff_total - (`Cota Indígena` + `Demais Cotas`)] %>%
+  .[,`Sem Cotas` := ifelse(is.na(`Sem Cotas`),diff_total,`Sem Cotas`)] %>%
+  select(-diff_total,-grupo) %>%
+  melt(id.vars = 'ano',
+       variable.name = "Ingresso",
+       value.name = "diff_total") %>%
+  .[,.(diff_total = sum(diff_total,na.rm = T)),
+    .(periodo = ifelse(ano < 2025,
+                       "2016 a 2024",
+                       paste0("2025 a ",
+                              year(dt_range[2])
+                              )
+                       ),
+      Ingresso
+      )
+    ] %>%
+  setorder(Ingresso,periodo)  %>%
+  .[,total := cumsum(diff_total),.(Ingresso)]
+
+## juntando ingressos e cotas
+# serie_ingresso_cotas <- 
 
 
 serie_variacoes <- 
@@ -1386,8 +1412,8 @@ serie_variacoes <-
   .[,grupo.f := factor(grupo,
                        levels = 
                          c("Efetivos Ativos",
-                           "Novos Aposentados/Inst. Pensões",
-                           "Novos Ingressos"
+                           "Aposentadorias/óbitos",
+                           "Ingressos"
                            ),
                         ordered = T)]
 
@@ -1396,16 +1422,13 @@ serie_variacoes <-
 periodo_negativo <- 
   serie_variacoes[grupo == "Efetivos Ativos" & diff_total < 0,
                   range(ano) %>% lista_e(" a ")]
-inicio_cotas <- 
-  serie_variacoes[grupo == "Cotas para Indígenas",
-                  min(ano)]
 
 ingresso_cotas <- 
-  serie_cotas_indigenas[grepl("cotas",grupo,ignore.case = T) & 
-                          ano >= 2025,
+  serie_cotas_ingressos[grepl("2025",periodo),
                         .(ingressos  = sum(diff_total),
-                          cotas = sum(diff_total*(grupo == "Cotas para Indígenas"))
-                          )]
+                          cotas = sum(diff_total*(Ingresso == "Cota Indígena"))
+                          )
+                        ]
   
 ```
 
@@ -1414,7 +1437,7 @@ O gráfico a seguir aponta as variações anuais de saídas e ingressos de servi
 
 ```{r variacao_efetivos}
 serie_variacoes[,diff_total2 :=
-                  ifelse(grupo.f == "Novos Ingressos",
+                  ifelse(grupo.f == "Ingressos",
                          diff_total,
                          diff_total*(-1)
                          )]
@@ -1440,7 +1463,8 @@ serie_variacoes %>%
   scale_x_continuous(breaks = seq(dt_range[1],dt_range[2]) %>% year) +
   # geom_point(size = 2) +
   geom_hline(yintercept = 0) +
-  labs(title = "Variação anual nos efetivos de indígenas\npor situação e forma de ingresso",
+  labs(title = paste0("Variação anual X total de efetivos de indígenas\n",
+                      dt_max_graph),
        col = NULL,
        fill = NULL,
        x = NULL,
@@ -1449,8 +1473,8 @@ serie_variacoes %>%
 
 if(is_html){
 ggplotly_c(plot_variacoes)  %>%
-  plotly::layout(legend = list(x = 0.45,
-                               y = 0,
+  plotly::layout(legend = list(x = 0.55,
+                               y = -0.1,
                                xanchor = "center",
                                yanchor = "upper",
                                orientation = "h")
@@ -1468,12 +1492,12 @@ Desde então, foram registrados `r ingresso_cotas$cotas` ingressos por cota para
 
 
 ```{r evolucao_efetivos}
-serie_variacoes %>%
-  ggplot_cat(aes(x = ano,y = total,col =grupo.f)) + 
-  geom_line(size = 1.2) + 
-  geom_point(size = 2) + 
-  labs(title = "Vínculos efetivos de indígenas por situação e forma de ingresso",
-       col = NULL,
+serie_cotas_ingressos %>%
+  ggplot_cat(aes(x = periodo,y = diff_total,fill = Ingresso)) + 
+  geom_col() + 
+  # geom_point(size = 2) + 
+  labs(title = "Ingressos de efetivos de indígenas por forma de ingresso",
+       fill = NULL,
        x = NULL,
        y = "Total de vínculos") -> plot_evolucoes
 
@@ -1981,3 +2005,7 @@ if(is_html){
 ```
 
 <!-- </div> -->
+```{r renderizar, eval = F}
+rmarkdown::render('docs/index.rmd',output_format = 'html_document',output_file = 'index.html')
+```
+
