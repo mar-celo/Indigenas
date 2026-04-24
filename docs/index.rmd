@@ -2,15 +2,17 @@
 title: "Representatividade Indígena na Administração Pública Federal"
 author: "CGINF/DIGID/SGP/MGI"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-always_allow_html: true
 output:
+  pdf_document:
+    toc: true
+  word_document:
+    toc: true
+    reference_docx: model_ref3_edit.docx
   html_document:
     self-contained: true
     toc: true
     css: "styles-2.css"
-  word_document:
-    toc: true
-    reference_docx: model_ref3_edit.docx
+always_allow_html: true
 ---
 
 ```{r setup, message=FALSE, warning=FALSE,echo = F}
@@ -90,7 +92,7 @@ is_html <- knitr::is_html_output()
 
 .main-container {
 
-  max-width: 100%;
+  max-width: 120%;
 
   margin-left: auto;
 
@@ -1326,15 +1328,16 @@ if(is_html){
 serie_cotas <- readRDS('../data/serie_cotas.rds') %>% setDT
 serie_ingressos <- readRDS('../data/serie_ingressos.rds') %>% setDT
 df_indigenas_sit <- readRDS("../data/df_indigenas_sit.rds") %>% setDT
+df_saidas <- readRDS("../data/df_saidas.rds") %>% setDT
 
 ## saídas por aposentadoria ou pensão
-df_indigenas_sit[situacao %in% c("Aposentado","Instituidor pensao") & 
-                   efetivo,
+df_saidas[situacao %in% c("APOSENTADO","INST_PENSAO"),
                  .(grupo = "Aposentadorias/óbitos",
-                   total = sum(total)),
+                   diff_total = sum(total)),
                  .(ano  = substr(mes.f,1,4) %>% as.numeric)] %>%
+  filter(ano >= 2016) %>%
   setorder(ano) %>%
-  .[,diff_total := total - lag(total)] -> serie_saidas_indigenas
+  .[,total := cumsum(diff_total)] -> serie_saidas_indigenas
 
 
 ##  ingressos totais
@@ -1441,6 +1444,10 @@ serie_variacoes[,diff_total2 :=
                          diff_total,
                          diff_total*(-1)
                          )]
+
+# codf1 <- serie_variacoes[grupo.f == "Efetivos Ativos", max(abs(diff_total2),na.rm = T)]
+# codf2 <- serie_variacoes[grupo.f != "Efetivos Ativos", max(abs(diff_total2),na.rm = T)]
+# codf_s <- codf1/codf2
 
 serie_variacoes %>%
   filter(ano > 2016) %>%
@@ -1691,9 +1698,11 @@ if(is_html){
 
 ```
 
+
+
+```{r serie_niveis, eval = F}
 ## Níveis de função FCE e CCE
 
-```{r serie_niveis}
 df_funcao_total <- readRDS("../data/df_funcao_total.rds")
 
 
@@ -1725,10 +1734,14 @@ serie_niveis %>%
 ```
 
 
-Na maior parte do tempo desde `r serie_niveis[,min(ano)]`, indígenas com FCE ou CCE ocuparam, majoritariamente, o `r niveis_historicos$indigenas`. Já dentre os vínculos categorizados com diferentes declarações de raça/cor, o nível dominante foi `r niveis_historicos$demais_raca_cor`.
 
 
-```{r plot_serie_niveis}
+
+```{r plot_serie_niveis, eval = F}
+
+# Na maior parte do tempo desde `r serie_niveis[,min(ano)]`, indígenas com FCE ou CCE ocuparam, majoritariamente, o `r niveis_historicos$indigenas`. Já dentre os vínculos categorizados com diferentes declarações de raça/cor, o nível dominante foi `r niveis_historicos$demais_raca_cor`.
+
+
 serie_niveis %>%
   ggplot_cat(
     aes(
@@ -1759,7 +1772,7 @@ if(is_html){
 
 
 
-```{r tabela_niveis}
+```{r tabela_niveis,eval =F}
 
 # nível mais frequente entre indígenas
 maior_nivel_ind <- df_funcao_total[mes == dt_max_siape,
@@ -1820,14 +1833,18 @@ frase_paridade_d <- paridade_demais[abs(fem) >= 50,
                                        ]
 ```
 
-Em `r dt_max_show`, uma análise dos níveis de funções CCE ou FCE exercidas por indígenas revela uma maior incidência para `r maior_nivel_ind[1,nivel]`,com `r maior_nivel_ind[1,indigenas]-> max_nivel_ind;max_nivel_ind` vínculos ativos, `r formatar_num(100*max_nivel_ind/maior_nivel_ind[,sum(indigenas)],1)`% dos indígenas com FCE ou CCE. Nas demais categorias de raça/cor, observa-se um total de `r maior_nivel_ind[1,demais_raca_cor]-> max_nivel_d;max_nivel_d` vínculos ativos neste mesmo nível (`r formatar_num(100*max_nivel_d/maior_nivel_ind[,sum(demais_raca_cor)],1)`% dentre os que possuem função FCE ou CCE).
-
-Com relação à paridade de gênero nos diferentes níveis de função, há uma maior presença feminina de vínculos de indígenas para os níveis `r paridade_indigenas[1,head(nivel,1) %>% gsub("Níve ","",.)]`, com `r paridade_indigenas[1,abs(fem)]`% de mulheres, enquanto os níveis com menor percentual são `r tail(paridade_indigenas,1) %>% .[,nivel %>% gsub("Nível ","",.)]`, com `r tail(paridade_indigenas,1) %>% .[,abs(fem)]`%.
-
-Dentre os vínculos de indígenas, `r frase_paridade_i`. Dentre os não indígenas, por sua vez, `r frase_paridade_d`.
 
 
-```{r piramide_niveis}
+```{r piramide_niveis, eval = F}
+
+# Em `r dt_max_show`, uma análise dos níveis de funções CCE ou FCE exercidas por indígenas revela uma maior incidência para `r maior_nivel_ind[1,nivel]`,com `r maior_nivel_ind[1,indigenas]-> max_nivel_ind;max_nivel_ind` vínculos ativos, `r formatar_num(100*max_nivel_ind/maior_nivel_ind[,sum(indigenas)],1)`% dos indígenas com FCE ou CCE. Nas demais categorias de raça/cor, observa-se um total de `r maior_nivel_ind[1,demais_raca_cor]-> max_nivel_d;max_nivel_d` vínculos ativos neste mesmo nível (`r formatar_num(100*max_nivel_d/maior_nivel_ind[,sum(demais_raca_cor)],1)`% dentre os que possuem função FCE ou CCE).
+# 
+# Com relação à paridade de gênero nos diferentes níveis de função, há uma maior presença feminina de vínculos de indígenas para os níveis `r paridade_indigenas[1,head(nivel,1) %>% gsub("Níve ","",.)]`, com `r paridade_indigenas[1,abs(fem)]`% de mulheres, enquanto os níveis com menor percentual são `r tail(paridade_indigenas,1) %>% .[,nivel %>% gsub("Nível ","",.)]`, com `r tail(paridade_indigenas,1) %>% .[,abs(fem)]`%.
+# 
+# Dentre os vínculos de indígenas, `r frase_paridade_i`. Dentre os não indígenas, por sua vez, `r frase_paridade_d`.
+
+
+
 df_funcao_total %>%
   filter(mes == dt_max_siape) %>%
   ggplot_cat(aes(x = nivel_ord,

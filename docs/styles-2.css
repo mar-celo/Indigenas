@@ -12,7 +12,7 @@
   --fundo-suave: #F0F0FF;
 
   /* Padronização de escala */
-  --font-base-size: 2.2rem;
+  --font-base-size: 1.8rem;
   --line-height-base: 1.6;
 }
 
@@ -23,7 +23,7 @@ body {
   color: var(--cinza-texto);
   background-color: #ffffff;
   line-height: var(--line-height-base);
-  max-width: 80%;
+  max-width: 95%;
   margin: auto;
   padding: 3.125rem;   /* 50px */
 
@@ -106,14 +106,14 @@ body {
 
 /* --- HOVER --- */
 #TOC li:hover {
-  padding-left: 0.5rem !important; /* Move o LI inteiro (incluindo a bolinha) */
-  color: var(--azul-odp) !important; /* Muda a cor da "bolinha" do list-style */
+padding-left: 3rem !important; 
+color: var(--azul-odp) !important; 
 }
 
 #TOC li:hover a {
-  color: var(--azul-odp) !important;
-  font-weight: 600 !important;
-  text-decoration: underline !important;
+color: var(--azul-odp) !important;
+font-weight: 600 !important;
+text-decoration: underline !important;
 }
 
 /* --- 4. TÍTULOS --- */
