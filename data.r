@@ -29,15 +29,32 @@ dir.create("data",showWarnings = F)
 # ==============================================================================.
 
 
-### 2.1 - conexão com extração do DW (Luciana) ----
+### 2.1 - conexão com extração do DW (Luciana e Alan) ----
+
 path_dados <- "C:/Users/wesley.jesus/Documents/dados_publicacoes_tematicas"
 
+
+#### lendo arquivo tabelão local e filtrando para indígenas
+
+## lendo tabelão e salvando (descomentar se quiser fazer de novo)
+# df_tabelao <- fread(file.path(path_dados,"VW001_TABELAO_SERV_efet_202603.csv")) %>%
+#   janitor::clean_names()
+# df_tabelao_indigenas <- df_tabelao[no_cor_origem_etnica == "INDIGENA",]
+# saveRDS(df_tabelao_indigenas,file.path(path_dados,"df_tabelao_indigenas.rds"))
+
+
+# tabelão indígenas
+df_tabelao_indigenas <- readRDS(file.path(path_dados,"df_tabelao_indigenas.rds")) %>% setDT
+
+
+## agregado de servidores (todos,filtro PEP sem EST-18, EST-19)
 df_serv <- fread(file.path(path_dados,"TODOS2.csv")) %>%
   janitor::clean_names()
 
-df_cotas <- fread(file.path(path_dados,"COTAS_ATIVOS.csv")) %>%
-  janitor::clean_names()
+# df_cotas <- fread(file.path(path_dados,"COTAS_ATIVOS.csv")) %>%
+#   janitor::clean_names()
 
+# tabela de cotas do tabelão, para quem marcou cotas diferenze de 0 ou vazio
 df_cotas_ind <- fread(file.path(path_dados,"COTAS_COMINDICADOR.csv")) %>%
   janitor::clean_names()
 
@@ -48,8 +65,9 @@ dic_cotas <- data.table(co_tipo_cota = 0:4,
                             "Cota Racial",
                             "Cota PCD",
                             "Cota Indígena"))
+
+
 # formatando datas
-df_cotas[,anomes := as.Date(dt_ocor_ingr_spub_serv,"%d/%m/%Y") %>% format("%Y%m")]
 df_cotas_ind[,`:=`(anomes = as.Date(dt_ocor_ingr_spub_serv,"%d/%m/%Y") %>% format("%Y%m"),
                    anomes_ex = as.Date(dt_ocor_exclusao_serv,"%d/%m/%Y") %>% format("%Y%m"))]
 
@@ -57,24 +75,6 @@ df_cotas_ind[,`:=`(anomes = as.Date(dt_ocor_ingr_spub_serv,"%d/%m/%Y") %>% forma
 ## aposentados e instituidores de penão
 df_situacao_ind <- fread(file.path(path_dados,"pep_conceito_servidores_indigenas.txt")) %>%
   janitor::clean_names()
-
-
-### TESTES (EXCLUIR DEPOIS)
-
-# # checando onde tem data NA
-# df_cotas[is.na(anomes),.N,.(dt_lotacao_serv)]
-# df_cotas_ind[is.na(anomes),.N,.(dt_lotacao_serv)]
-#
-# # checando % de NA nas datas por marcador de cotas
-# df_cotas[,.(.N,
-#             n_data_na = sum(is.na(anomes)),
-#             p_data_na = 100*mean(is.na(anomes)),
-#             min_mes = min(anomes,na.rm = T),
-#             max_mes = max(anomes,na.rm = T)),.(co_tipo_cota)]
-#
-# # checando filtros
-# df_cotas[,.N,.(var_0048_qtd_serv_p,var_0001_situacao)]
-# df_cotas_ind[,.N,.(var_0048_qtd_serv_p,var_0001_situacao)]
 
 
 ### faixa etária
@@ -100,7 +100,7 @@ idades[,nome_faixa_etaria :=
                 ),
        .(faixa_etaria)
        ]
-
+# juntando faixa etária
 df_serv <- left_join(df_serv,idades)
 
 ### 2.2 - conexão com DataBricks unique()### 2.2 - conexão com DataBricks ----
@@ -121,12 +121,19 @@ df_spark <- spark_read_parquet(
 )
 
 
-# Leitura dos do Tabelão 202602
-df_tabelao <- spark_read_csv(
+# # Leitura dos do Tabelão 202602
+# df_tabelao <- spark_read_csv(
+#   sc,
+#   name = "tabelao",
+#   delimiter = ";",
+#   path = "/Volumes/mgi-bronze/raw_data_volumes/mgi/DIGID/CGINF/01.Bases_SAS/VW001_TABELAO_SERV_202602.csv") %>%
+#   janitor::clean_names()
+
+
+df_etnia_efetivos <- spark_read_parquet(
   sc,
   name = "tabelao",
-  delimiter = ";",
-  path = "/Volumes/mgi-bronze/raw_data_volumes/mgi/DIGID/CGINF/01.Bases_SAS/VW001_TABELAO_SERV_202602.csv") %>%
+  path = "/Volumes/mgi-bronze/raw_data_volumes/mgi/cginf/servidores_dwsiape_etnia_efetivos")%>%
   janitor::clean_names()
 
 
@@ -293,6 +300,28 @@ saveRDS(df_orgao,'data/df_orgao.rds')
 # ==============================================================================.
 
 ## total de efetivos
+# df_efetivos <-
+#   df_etnia_efetivos %>%
+#   group_by(ano,
+#            mes,
+#            nome_cor_origem_etnica#,
+#            # nome_sexo,
+#            # nome_faixa_etaria
+#            ) %>%
+#   summarise(total = sum(qtde_vinculos)) %>%
+#   collect %>%
+#   mutate(efetivo = TRUE) %>% #View
+#   group_by(mes,nome_cor_origem_etnica,
+#            # nome_sexo,nome_faixa_etaria,
+#            efetivo) %>%
+#   summarise(total = sum(total)) %>%
+#   setDT
+
+### OBSERVAÇÃO: NOTEI QUE A SÉRIE NÃO TEM POR SEXO, E NÃO TEM DESDE 2016
+### POR OUTRO LADO, OS TOTAIS DE EFETIVOS BATEM COM O QUE TENHO NA EXTRAÇÃO DA LUCIANA,
+
+
+## total de não efetivos
 df_efetivos <-
   df_serv %>%
   group_by(ano,
@@ -308,7 +337,7 @@ df_efetivos <-
                        grepl("s/(cargo|info)",nome_cargo_origem,ignore.case = T)
                      )
          ) %>% #View
-  group_by(mes,nome_cor_origem_etnica,
+  group_by(ano,mes,nome_cor_origem_etnica,
            nome_sexo,nome_faixa_etaria,
            efetivo) %>%
   summarise(total = sum(total)) %>%
@@ -451,13 +480,15 @@ saveRDS(df_funcao_efetivos,"data/df_funcao_efetivos.rds")
 # 9. Ingressos por cotas ------
 # ==============================================================================.
 
-df_tabelao %>%
-  filter(no_cor_origem_etnica == "INDIGENA") %>%
+df_tabelao_indigenas %>%
+  # indígenas efetivos
+  filter(no_cor_origem_etnica == "INDIGENA",
+         in_serv_efetivo == 1) %>%
   filter(!no_natureza_juridica %in% c("SERVICO PUBLICO ESTADUAL","EMPRESA PUBLICA","SOCIEDADE ECONOMIA  MISTA"),
          co_orgao != 99072,
          !sg_regime_juridico %in% c("RMI","ETE","ETG"),
          !regime_jur_e_sit %in% c("EST-18","EST-19","EST-41","EST-42","ANS-36","ANS-37")
-  ) %>%
+  ) %>%  #NROW()
   group_by(no_cor_origem_etnica,
            no_cargo,
            no_cargo_origem,
@@ -487,7 +518,12 @@ df_tabelao %>%
   collect %>%
   setDT() -> filtro_saidas_tabelao
 
-filtro_saidas_tabelao[,mes_ingresso := format(as.Date(dt_ocor_ingr_spub_serv),"%Y%m")]
+filtro_saidas_tabelao[,`:=`(
+  mes_ingresso = format(as.Date(dt_ocor_ingr_spub_serv,"%d/%m/%Y"),"%Y%m"),
+  mes_obito =  format(as.Date(dt_obito,"%d/%m/%Y"),"%Y%m"),
+  mes_excl = format(as.Date(dt_ocor_exclusao_serv,"%d/%m/%Y"),"%Y%m"),
+  mes_inatividade = format(as.Date(dt_ocor_inatividade_serv,"%d/%m/%Y"),"%Y%m")
+  )]
 
 
 ### Série de ingressos (Tabelão)
@@ -502,6 +538,8 @@ filtro_saidas_tabelao %>%
       no_cor_origem_etnica)
   ]-> serie_ingressos
 
+
+### série de ingresso por cotas
 df_cotas_ind %>%
   filter(!is.na(anomes),
          co_tipo_cota > 1) %>%
@@ -521,41 +559,10 @@ saveRDS(serie_cotas,'data/serie_cotas.rds')
 
 
 
-# full_join(
-#   df_cotas_ind[no_cor_origem_etnica == "INDIGENA",
-#                .(total_cotistas = .N),
-#                .(ano_ingresso = substr(anomes,1,4) %>% as.numeric(),
-#                  co_tipo_cota)
-#                ],
-#
-#   df_cotas[no_cor_origem_etnica == "INDIGENA",
-#            .(total_ativos_hoje = .N),
-#            .(ano_ingresso =  substr(anomes,1,4) %>% as.numeric(),
-#              co_tipo_cota)
-#            ]
-#
-#   ) %>% View
-#
-#
-#
-# df_cotas[no_cor_origem_etnica == "INDIGENA" &
-#            !is.na(anomes),
-#          .(.N),
-#          .(co_tipo_cota)] %>%
-#   .[,p := 100*N/sum(N)] %>% View
-#
-#
-# df_cotas[no_cor_origem_etnica == "INDIGENA" &
-#            !is.na(anomes),
-#          .(.N,
-#            ),
-#          .(anomes,
-#            ativo =  ] %>%
-#   filter(ativo) %>% View
 
 
 # ==============================================================================.
-# 10. Saídas por aposentadoria ------
+# 10. Saídas por aposentadoria ou morte ------
 # ==============================================================================.
 
 df_indigenas_sit <- df_situacao_ind[,.(total = sum(v16)),
@@ -577,104 +584,45 @@ df_indigenas_sit <- df_situacao_ind[,.(total = sum(v16)),
 
 ## filtro efetivos
 filtro_saidas_tabelao %>%
-  # filter(no_cor_origem_etnica == "INDIGENA") %>%
-  mutate(
-    efetivo_by_cargo =  ifelse(!(is.na(no_cargo) & is.na(no_cargo_origem)),
-                               total,
-                               0)#,
-    # efetivo_by_ing
-  ) %>%
+  filter(var_0001_situacao == "APOSENTADO" | var_0001_situacao == "INST_PENSAO") %>%
+  group_by(var_0001_situacao,,
+           mes_obito,
+           mes_inatividade) %>%
+  summarise(total = sum(total)) %>%
+  setDT %>%
+  ## agregando por reconfiguraçao data
   .[,.(total = sum(total)),
-    .(efetivo_by_cargo = efetivo_by_cargo > 0,
-      co_ocor_ingr_spub,
-      no_ocorrencia_ingspf,
-      # nu_dip_leg_ingr_spub,
-      co_ocor_ingr_spub_posse
-
-      )
-    # .(efetivo_by_cargo = efetivo_by_cargo > 0,
-    #   tem_dt = !is.na(dt_ocor_ingr_spub_serv),
-    #   # co_ocor_ingr_spub_posse,
-    #   no_ocorrencia_ingspf)
-    ] %>%
-  setorder(efetivo_by_cargo,-total) %>% View
-  setorder(efetivo_by_cargo,tem_dt,-total) %>% View
-  group_by(var_0001_situacao) %>%
-  summarise(total = sum(total),
-            efetivo_by_cargo = sum(efetivo_by_cargo)) %>%
-  setDT %>% View
+    ,.(situacao = var_0001_situacao,
+       mes.f = ifelse(var_0001_situacao == "APOSENTADO",
+                   mes_inatividade,
+                   mes_obito)
+       )]  -> df_saidas
 
 
 
-filtro_teste_tabelao %>%
+saveRDS(df_saidas,"data/df_saidas.rds")
+saveRDS(df_indigenas_sit,"data/df_indigenas_sit.rds")
+
+  # ==============================================================================.
+# 10. fechando conexão -----
+# ==============================================================================.
+
+spark_disconnect(sc)
+
+
+
+
+
+
+df_tabelao %>%
   # filter(no_cor_origem_etnica == "INDIGENA") %>%
   filter(!no_natureza_juridica %in% c("SERVICO PUBLICO ESTADUAL","EMPRESA PUBLICA","SOCIEDADE ECONOMIA  MISTA"),
          co_orgao != 99072,
          !sg_regime_juridico %in% c("RMI","ETE","ETG"),
          !regime_jur_e_sit %in% c("EST-18","EST-19","EST-41","EST-42","ANS-36","ANS-37")
-         ) %>%
-  filter(!is.na(dt_ocor_exclusao_serv)) %>%
-  # filter(!is.na(dt_ocor_inatividade_serv)) %>%
-  # filter(!is.na(dt_obito)) %>%
-  mutate(efetivo =  !(is.na(no_cargo) & is.na(no_cargo_origem))) %>%
-  filter(efetivo) %>%
-  # group_by(efetivo,var_0001_situacao) %>%
-  group_by(efetivo,
-           co_ocor_exclusao,
-           no_ocorrencia_excl) %>%
-  # group_by(efetivo,no_ocorrencia_apo) %>%
-  # group_by(no_natureza_juridica) %>%
-  summarise(total = sum(total)) %>%
-  setorder(efetivo,-total) %>%
-  setDT %>%
-  .[,.(total = sum(total)),
-    .(#no_ocorrencia_excl,
-      motivo =
-        ifelse(grepl("MORTE|FALECIMENTO",no_ocorrencia_excl,ignore.case = T),
-               "Falecimento",
-               ifelse(
-                 grepl("t.rmino|rescis.o",no_ocorrencia_excl,ignore.case = T),
-                 "Término de contrato",
-                 ifelse(
-                   grepl("demiss.o|exonera..o|afastamento|abandono",no_ocorrencia_excl,ignore.case = T),
-                   "Demissão/Exoneração/Afastamento",
-                   "Outros motivos"
-                   )
-                 )
-               )
-      )] %>%
-  .[,p := 100*total/sum(total)] %>%
-  setorder(motivo,-p) %>% View
-
-
-filtro_teste_tabelao[!is.na(dt_ocor_exclusao_serv),
-                    .(total = .N),
-                    .(co_ocor_exclusao,
-                      no_ocorrencia_excl)] %>% View
-
-# df_indigenas_sit  %>%
-#   filter(!is.na(mes.f)) %>%
-#   ggplot_cat(aes(x = as.numeric(substr(mes.f,1,4)),
-#                  y = total,
-#                  col =
-#                    paste0(
-#                      ifelse(
-#                        efetivo,
-#                        "Efetivo ",
-#                        "Não efetivo "
-#                        ),
-#                      situacao)
-#                  )
-#              ) +
-#   geom_line(size = 2) +
-#   geom_point(size = 3)
-
-
-saveRDS(df_indigenas_sit,"data/df_indigenas_sit")
-
-# ==============================================================================.
-# 10. fechando conexão -----
-# ==============================================================================.
-
-spark_disconnect(sc)
+  ) %>%
+  group_by(var_0048_qtd_serv_p,
+           var_0001_situacao) %>%
+  summarise(total = n()) %>%
+  collect -> filtro_pep_teste
 
