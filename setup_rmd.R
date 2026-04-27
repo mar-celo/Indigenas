@@ -81,7 +81,7 @@ plot_config <-
   theme_minimal(base_family = "roboto") +
   theme(
     plot.title = element_markdown(family = "title_font",
-                                  size = 18,
+                                  size = 15,
                                   face = "bold",
                                   color = pal_primaria[1],
                                   hjust = 0),

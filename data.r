@@ -594,8 +594,8 @@ filtro_saidas_tabelao %>%
   .[,.(total = sum(total)),
     ,.(situacao = var_0001_situacao,
        mes.f = ifelse(var_0001_situacao == "APOSENTADO",
-                   mes_inatividade,
-                   mes_obito)
+                      mes_inatividade,
+                      mes_obito)
        )]  -> df_saidas
 
 

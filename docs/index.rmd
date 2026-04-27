@@ -2,20 +2,28 @@
 title: "Representatividade Indígena na Administração Pública Federal"
 author: "CGINF/DIGID/SGP/MGI"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+lang: pt-BR
 output:
-  pdf_document:
-    toc: true
-  word_document:
-    toc: true
-    reference_docx: model_ref3_edit.docx
   html_document:
     self-contained: true
     toc: true
     css: "styles-2.css"
+  word_document:
+    toc: true
+    reference_docx: model_ref3_edit.docx
+  pdf_document:
+    toc: true
 always_allow_html: true
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage{caption}
+  - \captionsetup[table]{name=}
+  - \captionsetup[figure]{name=}
 ---
 
-```{r setup, message=FALSE, warning=FALSE,echo = F}
+```{r setup, message=FALSE, warning=FALSE,echo = F,results = "hide"}
 # ==============================================================================
 # 1. CONFIGURAÇÕES INICIAIS E BIBLIOTECAS
 # ==============================================================================
@@ -44,6 +52,8 @@ library(echarts4r)
 library(DT)
 library(crosstalk)
 library(flextable)
+
+
 
 # Configuração de fontes para estética TidyTuesday
 # font_add_google("Roboto Condensed", "roboto")
@@ -310,7 +320,7 @@ codf <- df_indigena_mes[mes == dt_max_siape, max(n)/max(pct)]
 
 # 4. Construção do gráfico
 # 4. Construção do gráfico
-txt_size <- 30 
+# txt_size <- 30 
 ggplot_cat(df_indigena_mes,
            aes(x = data)) +
   
@@ -462,7 +472,7 @@ df_indigenas_uf %>%
   theme_minimal(base_family = "roboto") +
   theme( 
     plot.title = element_markdown(family = "title_font",
-                                  size = 26, 
+                                  size = 16, 
                                   face = "bold",
                                   color = pal_primaria[1],
                                   hjust = 0),
@@ -516,7 +526,7 @@ col_pct <- col_numeric(palette = c("white",pal_primaria['principal']),
 ```
 
 
-Ao analisar a representatividade de indígenas em cada órgão, a tabela a seguir aponta  `r df_orgao3[,paste0(str_to_title(no_orgao_texto)," (",nome_orgao_vinc,")",", com ",pct_indigena,"%") %>% lista_e(sep_l = "; ")]` como aqueles em que há maior presença de indígenas com relação ao total de vínculos. Juntos, estes órgãos contam com `r df_orgao3[,sum(total_orgao)] %>% formatar_num(0)` vínculos, sendo que `r df_orgao3[,100*sum(total)/sum(total_orgao)] %>% formatar_num(1)`% são de pessoas indígenas. Por outro lado, estes mesmo órgãos concentram `r formatar_num(100*df_orgao3[,sum(total)]/df_orgao_ind[,sum(total)],1)`% dos vínculos ativos de indígenas.
+Ao analisar a representatividade de indígenas em cada órgão, a tabela a seguir aponta  `r df_orgao3[,paste0(str_to_title(no_orgao_texto)," (",nome_orgao_vinc,")",", com ",pct_indigena,"%") %>% lista_e(sep_l = "; ")]`, como aqueles em que há maior presença de indígenas com relação ao total de vínculos. Juntos, estes órgãos contam com `r df_orgao3[,sum(total_orgao)] %>% formatar_num(0)` vínculos, sendo que `r df_orgao3[,100*sum(total)/sum(total_orgao)] %>% formatar_num(1)`% são de pessoas indígenas. Por outro lado, estes mesmo órgãos concentram `r formatar_num(100*df_orgao3[,sum(total)]/df_orgao_ind[,sum(total)],1)`% dos vínculos ativos de indígenas.
 
 ```{r dt_indigena_orgao, eval = is_html}
 
@@ -790,7 +800,7 @@ ggplot(df_treemap_ind, aes(area = total,
   
   labs(
     title = paste0("Distribuição de Escolaridade: Vínculos INDÍGENAS, ",dt_max_graph),
-    subtitle = paste0("Análise por Nível de Instrução e Região Política (",dt_max_graph,")"),
+    # subtitle = paste0("Análise por Nível de Instrução e Região Política (",dt_max_graph,")"),
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Visualização: Marcelo Ribeiro",
     fill = "Escolaridade"
   ) + 
@@ -1041,7 +1051,7 @@ df_mapa_h3 <- head(df_mapa_final,3) %>% setDT
 ```
 
 
-Com relação à UF de exercício do servidor, a maior concentração de vínculos indígena está no `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
+Com relação à UF de exercício do servidor, a maior concentração de vínculos indígenas está no `r df_mapa_h3[,lista_e(abbrev_state," e ")]`, que somam vínculos ativos, `r df_mapa_h3[,sum(total_indigenas)] -> uf_ind;formatar_num(uf_ind,0)`, `r formatar_num(100*uf_ind/sum(df_indigenas_uf$total_indigenas),1)`% do total deste grupo.
 
 
 ```{r show_mapa}
@@ -1051,9 +1061,9 @@ Com relação à UF de exercício do servidor, a maior concentração de víncul
 
 ggplot(data = df_mapa_final) +
   # Desenha os polígonos dos estados
-  geom_sf(aes(fill = total_indigenas), color = "white", size = 0.55) +
+  geom_sf(aes(fill = total_indigenas), color = "white", size = 0.55) + 
   
-  plot_fill_cont + 
+  plot_fill_cont +
   
   # Adiciona os números em cada UF (Rótulos)
   geom_sf_text(aes(label = ifelse(total_indigenas > 0, total_indigenas, "")), 
@@ -1065,26 +1075,33 @@ ggplot(data = df_mapa_final) +
   
   # Títulos e Identidade Visual
   labs(
-    title = paste0("Concentração de Vínculos Indígenas por UF,",dt_max_graph),
+    title = 
+      paste0("Vínculos ativos de Indígenas por UF, ",dt_max_graph),
     # subtitle = paste0("",dt_max_graph),
     # caption = "Fonte: Dados DWSIAPE / MGI-BRONZE | Malhas: geobr (IBGE) | Processamento: R/Spark",
     x = NULL,
     y = NULL,
     fill = "Total de Vínculos indígenas"
-  ) +
-  # Tema minimalista para mapas
+  ) + 
+    # Tema
   theme_void(base_family = "roboto") +
   theme(
-    text = element_text(size = 15),
     plot.title = element_markdown(family = "title_font",
-                                  size = 26,
+                                  size = 15,
                                   face = "bold",
-                                  color = "#0000aa",
+                                  color = pal_primaria[1],
                                   hjust = 0),
-    plot.subtitle = element_text( color = "grey40", margin = margin(b=20)),
-    legend.title = element_text(face = "bold"),
-    legend.position = "right"
-    )  -> mapa_indigenas
+    plot.subtitle = element_text(size = txt_size, color = "grey40", margin = margin(b = 25)),
+    plot.caption = element_text(size = txt_size, color = "grey60", margin = margin(t = 20)),
+    legend.position = "right",
+    legend.title = element_text(size = txt_size,face = "bold"),
+    legend.text = element_text(size = txt_size),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title = element_text(size = txt_size)#,
+    # axis.text = element_text(size = txt_size, color = "#555555"),
+    # strip.text.x.top = element_text(color = "#0000aa",size = txt_size)
+  ) -> mapa_indigenas
 # ggplotly(mapa_indigenas)
 mapa_indigenas
 ```
@@ -1126,7 +1143,7 @@ prop_efetivos_last_nogender <-
 ```
 
 
-Em `r dt_max_show`, `r df_efetivos[nome_cor_origem_etnica == 'INDIGENA',round(100*sum(total*efetivo)/sum(total))]`% dos vínculos ativos de indígenas eram de servidores com cargo efetivo. Considerando todos os vínculos ativos da APF, este percentual era de  `r df_efetivos[,round(100*sum(total*efetivo)/sum(total))]`%. Entre os indígenas, o percentuaL de servidores com cargo efetivo era de `r prop_efetivos_last_nogender[,p]`%.
+Em `r dt_max_show`, `r df_efetivos[nome_cor_origem_etnica == 'INDIGENA' & mes == dt_max_siape,round(100*sum(total*efetivo)/sum(total))]`% dos vínculos ativos de indígenas eram de servidores com cargo efetivo. Considerando todos os vínculos ativos da APF, este percentual era de  `r df_efetivos[ mes == dt_max_siape,round(100*sum(total*efetivo)/sum(total))]`%.
 
 ```{r plot_efetivos}
 ## plot 1
@@ -1218,7 +1235,7 @@ diff_n_efetivo[which.max(diff_efetivo),] -> anosalto
 
 Ao longo do período de `r serie_efetivos[,range(ano)] %>% lista_e(" a ")`, o total de vínculos efetivos de indígenas variou de forma considerável. A série começa em `r minano` com `r serie_efetivos[ano == minano & etnia == "Indígenas" & efetivo,formatar_num(total,0)]` indígenas efetivos, chegando ao seu menor valor, `r anomenor[,formatar_num(total,0)]` em `r anomenor$ano`. Tal diminuição é explicada por aposentadorias e óbitos no período, sem a contrapartida de ingressos indígenas suficientes à manutenção do quantitativo. Todavia, a partir de 2022, o quantitativo de indígenas vem apresentando aumento.
 
-Em relação aos vínculos sem cargo efetivo, também registrou queda a partir de 2016, com um salto no ano `r anosalto$ano` de `r anosalto$anterior %>% formatar_num(0)` para `r anosalto$total %>% formatar_num(0) `. 
+Em relação aos vínculos sem cargo efetivo, também registrou-se queda a partir de 2016, com um salto no ano `r anosalto$ano` de `r anosalto$anterior %>% formatar_num(0)` para `r anosalto$total %>% formatar_num(0) `. 
 
 
 ```{r indigenas_compara_efet}
@@ -1398,6 +1415,27 @@ serie_cotas_ingressos <-
   setorder(Ingresso,periodo)  %>%
   .[,total := cumsum(diff_total),.(Ingresso)]
 
+
+## ingresso cotas X totais
+serie_cotas_ingressos_anual <- 
+  serie_ingressos_indigenas %>%
+  select(ano,grupo,diff_total) %>%
+  left_join(serie_cotas_indigenas,
+            by = "ano") %>%  
+  .[,`Sem Cotas` := diff_total - (`Cota Indígena` + `Demais Cotas`)] %>%
+  .[,`Sem Cotas` := ifelse(is.na(`Sem Cotas`),diff_total,`Sem Cotas`)] %>%
+  select(-diff_total,-grupo) %>%
+  melt(id.vars = 'ano',
+       variable.name = "Ingresso",
+       value.name = "diff_total") %>%
+  .[,.(diff_total = sum(diff_total,na.rm = T)),
+    .(ano,
+      Ingresso
+      )
+    ] %>%
+  setorder(Ingresso,ano)  %>%
+  .[,total := cumsum(diff_total),.(Ingresso)]
+
 ## juntando ingressos e cotas
 # serie_ingresso_cotas <- 
 
@@ -1435,7 +1473,7 @@ ingresso_cotas <-
   
 ```
 
-O gráfico a seguir aponta as variações anuais de saídas e ingressos de servidores efetivos indígenas. A variação no número de efetivos foi negativa durante todo o período em que o número de aposentadorias e óbito foi superior ao número de ingressos, de `r periodo_negativo`. Tal situação explica a queda a queda no número de servidores efetivos no período.
+O gráfico a seguir aponta as variações anuais de saídas e ingressos de servidores efetivos indígenas. A variação no número de efetivos foi negativa durante todo o período em que o número de aposentadorias e óbitos foi superior ao número de ingressos, de `r periodo_negativo`. Tal situação explica a queda a queda no número de servidores efetivos ativos no período.
 
 
 ```{r variacao_efetivos}
@@ -1470,7 +1508,7 @@ serie_variacoes %>%
   scale_x_continuous(breaks = seq(dt_range[1],dt_range[2]) %>% year) +
   # geom_point(size = 2) +
   geom_hline(yintercept = 0) +
-  labs(title = paste0("Variação anual X total de efetivos de indígenas\n",
+  labs(title = paste0("Variação anual X total de efetivos de indígenas ",
                       dt_max_graph),
        col = NULL,
        fill = NULL,
@@ -1509,16 +1547,26 @@ serie_cotas_ingressos %>%
        y = "Total de vínculos") -> plot_evolucoes
 
 
+
+serie_cotas_ingressos_anual %>%
+  ggplot_cat(aes(x = ano,y = diff_total,fill = Ingresso)) + 
+  geom_col() + 
+  scale_x_continuous(breaks = seq(dt_range[1],dt_range[2]) %>% year) +
+  labs(title = "Ingressos de efetivos de indígenas por forma de ingresso",
+       fill = NULL,
+       x = NULL,
+       y = "Total de vínculos") -> plot_evolucoes_anual
+
 if(is_html){
-  ggplotly_c(plot_evolucoes)  %>%
+  ggplotly_c(plot_evolucoes_anual)  %>%
     plotly::layout(legend = list(x = 0.45,
-                                 y = 0,
+                                 y = -0.1,
                                  xanchor = "center",
                                  yanchor = "upper",
                                  orientation = "h")
                    )
   }else{
-    plot_evolucoes  
+    plot_evolucoes_anual  
   }
 ```
 
@@ -1972,7 +2020,9 @@ frase_equidade <-
 
 Uma forma de analisar o acesso a níveis de liderança pode ser determinada por um *índice de equidade de acessos*. O indicador é construído partindo-se da hipótese de que, na ausência de desigualdade racial e de gênero no acesso à Função Comissionada Executiva (FCE), a proporção de indígenas em cargos FCE deveria ser equivalente à sua proporção entre os servidores efetivos ativos. Isso porque, para assumir uma função FCE é necessário que o servidor tenha um vínculo ativo com cargo efetivo. Assim, este índice é definido como sendo a razão entre o percentual de indígenas em função FCE e o percentual de pessoas indígenas no quadro efetivo ativo. Mais precisamente, 
 
-$$\text{Índice de equidade} = \frac{\text{% indígenas em cargos FCE}}{\text{% indígenas no quadro efetivo ativo}}$$
+$$
+\text{Índice de equidade} = \frac{\% \text{ indígenas em cargos FCE}}{\% \text{ indígenas no quadro efetivo ativo}}
+$$
 
 O valor é interpretado de acordo com as seguintes faixas de valores:
 
